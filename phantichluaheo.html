@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Công Cụ Quản Lý & Phân Tích Lứa Nuôi Heo</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans pb-12">
+
+    <!-- Header -->
+    <header class="bg-emerald-800 text-white shadow-md py-6 mb-8">
+        <div class="max-w-7xl mx-auto px-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold"><i class="fa-solid fa-calculator mr-2"></i>Quản Lý & Phân Tích Hiệu Quả Lứa Nuôi Heo</h1>
+                <p class="text-emerald-100 text-xs mt-1">Nhập liệu 1 lần – Tự động tính toán giá thành, lợi nhuận & nhận định chất lượng cám</p>
+            </div>
+            <button onclick="calculate()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-5 rounded-lg shadow transition">
+                <i class="fa-solid fa-play mr-1"></i> Tính Toán Ngay
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- BẢNG NHẬP LIỆU -->
+        <section class="lg:col-span-5 bg-white p-5 rounded-xl shadow border border-slate-200 space-y-5">
+            <h2 class="text-lg font-bold border-b pb-2 text-slate-700 flex items-center">
+                <i class="fa-solid fa-pen-to-square text-emerald-600 mr-2"></i> Nhập Thông Số Lứa Nuôi
+            </h2>
+
+            <form id="pigForm" onsubmit="event.preventDefault(); calculate();" class="space-y-4">
+                
+                <!-- Con giống -->
+                <div class="bg-slate-50 p-3 rounded-lg space-y-2">
+                    <h3 class="font-semibold text-xs text-slate-500 uppercase tracking-wider">1. Con Giống</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">Số con giống (con)</label>
+                            <input type="number" id="numPigs" value="100" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">Giá con giống (đ/con)</label>
+                            <input type="number" id="breedPrice" value="1300000" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Thức ăn 3 giai đoạn -->
+                <div class="bg-slate-50 p-3 rounded-lg space-y-2">
+                    <h3 class="font-semibold text-xs text-slate-500 uppercase tracking-wider">2. Thức Ăn (Theo 3 Giai Đoạn)</h3>
+                    
+                    <!-- Tập ăn / Heo con -->
+                    <div class="grid grid-cols-2 gap-2 border-b border-slate-200 pb-2">
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">SL Cám heo con (bao 25kg)</label>
+                            <input type="number" id="feedBagStarter" value="150" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">Giá cám heo con (đ/bao)</label>
+                            <input type="number" id="feedPriceStarter" value="420000" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                        </div>
+                    </div>
+
+                    <!-- Giai đoạn Trung bình -->
+                    <div class="grid grid-cols-2 gap-2 border-b border-slate-200 pb-2">
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">SL Cám trung bình (bao 25kg)</label>
+                            <input type="number" id="feedBagGrower" value="450" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">Giá cám trung bình (đ/bao)</label>
+                            <input type="number" id="feedPriceGrower" value="350000" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                        </div>
+                    </div>
+
+                    <!-- Giai đoạn Lớn -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">SL Cám heo lớn (bao 25kg)</label>
+                            <input type="number" id="feedBagFinisher" value="400" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">Giá cám heo lớn (đ/bao)</label>
+                            <input type="number" id="feedPriceFinisher" value="320000" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chi phí vận hành -->
+                <div class="bg-slate-50 p-3 rounded-lg space-y-2">
+                    <h3 class="font-semibold text-xs text-slate-500 uppercase tracking-wider">3. Chi Phí Vận Hành Khác</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">Thuốc + Thuốc thú y + Vắc-xin</label>
+                            <input type="number" id="costVet" value="12000000" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">Vận chuyển</label>
+                            <input type="number" id="costTransport" value="3000000" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">Chi phí lương công nhân</label>
+                            <input type="number" id="costLabor" value="15000000" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">Chi phí điện nước + khác</label>
+                            <input type="number" id="costUtilities" value="6000000" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Đầu ra thực tế & Giả định -->
+                <div class="bg-slate-50 p-3 rounded-lg space-y-2">
+                    <h3 class="font-semibold text-xs text-slate-500 uppercase tracking-wider">4. Đầu Ra & Giả Định Thị Trường</h3>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">Số kg xuất bán ra (Tổng kg)</label>
+                            <input type="number" id="totalKgSold" value="11000" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">Giá bán thực tế (đ/kg)</label>
+                            <input type="number" id="actualPrice" value="62000" class="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" required>
+                        </div>
+                    </div>
+                    <label class="block text-xs text-slate-600 mb-1">3 Kịch bản Giá bán để so sánh (đ/kg):</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <input type="number" id="priceScenario1" value="55000" class="w-full border rounded p-2 text-sm outline-none" placeholder="Giá thấp">
+                        <input type="number" id="priceScenario2" value="62000" class="w-full border rounded p-2 text-sm outline-none" placeholder="Giá kỳ vọng">
+                        <input type="number" id="priceScenario3" value="68000" class="w-full border rounded p-2 text-sm outline-none" placeholder="Giá cao">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow transition">
+                    CẬP NHẬT KẾT QUẢ & PHÂN TÍCH
+                </button>
+            </form>
+        </section>
+
+        <!-- KẾT QUẢ & NHẬN ĐỊNH -->
+        <section class="lg:col-span-7 space-y-5">
+
+            <!-- 1. CẢNH BÁO TỔNG QUAN -->
+            <div id="alertBox" class="hidden space-y-2"></div>
+
+            <!-- 2. TỔNG CHI PHÍ & GIÁ THÀNH -->
+            <div class="bg-white p-5 rounded-xl shadow border border-slate-200">
+                <h2 class="text-base font-bold text-slate-700 mb-3 border-b pb-2 flex items-center">
+                    <i class="fa-solid fa-coins text-emerald-600 mr-2"></i> Tổng Chi Phí & Giá Thành Sản Xuất
+                </h2>
+                
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <span class="text-xs text-slate-500">Tổng chi phí đầu tư</span>
+                        <p id="resTotalCost" class="text-lg font-bold text-slate-800 mt-1">-</p>
+                    </div>
+                    <div class="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                        <span class="text-xs text-amber-700 font-semibold">Giá thành / kg (Hòa vốn)</span>
+                        <p id="resCostPerKg" class="text-lg font-bold text-amber-700 mt-1">-</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <span class="text-xs text-slate-500">Chi phí / con giống</span>
+                        <p id="resCostPerPig" class="text-lg font-bold text-slate-800 mt-1">-</p>
+                    </div>
+                </div>
+
+                <!-- Chi tiết cơ cấu chi phí -->
+                <div class="mt-4 pt-3 border-t text-xs text-slate-600 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div>Tiền giống: <strong id="resSubBreed">-</strong></div>
+                    <div>Tiền cám: <strong id="resSubFeed">-</strong></div>
+                    <div>Thuốc & Vắc-xin: <strong id="resSubVet">-</strong></div>
+                    <div>Lương + Điện nước: <strong id="resSubOther">-</strong></div>
+                </div>
+            </div>
+
+            <!-- 3. ĐÁNH GIÁ CHẤT LƯỢNG THỨC ĂN & HIỆU QUẢ CÁM -->
+            <div class="bg-white p-5 rounded-xl shadow border border-slate-200">
+                <h2 class="text-base font-bold text-slate-700 mb-3 border-b pb-2 flex items-center">
+                    <i class="fa-solid fa-wheat-awn text-emerald-600 mr-2"></i> Đánh Giá Chất Lượng Thức Ăn & Hiệu Quả FCR
+                </h2>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                    <div class="bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                        <span class="text-xs text-emerald-700">Hệ số FCR (Tiêu tốn cám)</span>
+                        <p id="resFCR" class="text-2xl font-black text-emerald-800 mt-1">-</p>
+                    </div>
+                    <div class="bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                        <span class="text-xs text-emerald-700">Tổng lượng cám sử dụng</span>
+                        <p id="resTotalFeedKg" class="text-base font-bold text-emerald-800 mt-1">-</p>
+                    </div>
+                    <div class="bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                        <span class="text-xs text-emerald-700">Chi phí cám / kg heo hơi</span>
+                        <p id="resFeedCostPerKgGain" class="text-base font-bold text-emerald-800 mt-1">-</p>
+                    </div>
+                </div>
+                <div id="feedQualityComment" class="p-3 rounded-lg bg-slate-50 text-xs sm:text-sm text-slate-700 leading-relaxed"></div>
+            </div>
+
+            <!-- 4. DỰ PHÓNG LỢI NHUẬN THEO 3 KỊCH BẢN GIÁ -->
+            <div class="bg-white p-5 rounded-xl shadow border border-slate-200">
+                <h2 class="text-base font-bold text-slate-700 mb-3 border-b pb-2 flex items-center">
+                    <i class="fa-solid fa-chart-line text-emerald-600 mr-2"></i> Dự Phóng Lợi Nhuận Theo 3 Kịch Bản Giá Bán
+                </h2>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs sm:text-sm">
+                        <thead>
+                            <tr class="border-b bg-slate-50 text-slate-600">
+                                <th class="p-2">Kịch bản</th>
+                                <th class="p-2">Giá bán (/kg)</th>
+                                <th class="p-2">Tổng Lợi Nhuận</th>
+                                <th class="p-2">Lợi nhuận/con</th>
+                                <th class="p-2">Tỷ suất LN (ROI)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scenarioTable">
+                            <!-- Kết quả đổ vào bằng JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 5. NHẬN ĐỊNH TỔNG THỂ TỪ CHUYÊN GIA -->
+            <div class="bg-white p-5 rounded-xl shadow border border-slate-200">
+                <h2 class="text-base font-bold text-slate-700 mb-2 flex items-center">
+                    <i class="fa-solid fa-clipboard-check text-emerald-600 mr-2"></i> Nhận Định Tổng Thể Đợt Chăn Nuôi
+                </h2>
+                <div id="overallAssessment" class="text-xs sm:text-sm text-slate-700 space-y-2 leading-relaxed"></div>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        function formatVND(val) {
+            return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+        }
+
+        function calculate() {
+            // 1. Lấy dữ liệu từ Form
+            const numPigs = parseFloat(document.getElementById('numPigs').value) || 0;
+            const breedPrice = parseFloat(document.getElementById('breedPrice').value) || 0;
+
+            const feedBagStarter = parseFloat(document.getElementById('feedBagStarter').value) || 0;
+            const feedPriceStarter = parseFloat(document.getElementById('feedPriceStarter').value) || 0;
+
+            const feedBagGrower = parseFloat(document.getElementById('feedBagGrower').value) || 0;
+            const feedPriceGrower = parseFloat(document.getElementById('feedPriceGrower').value) || 0;
+
+            const feedBagFinisher = parseFloat(document.getElementById('feedBagFinisher').value) || 0;
+            const feedPriceFinisher = parseFloat(document.getElementById('feedPriceFinisher').value) || 0;
+
+            const costVet = parseFloat(document.getElementById('costVet').value) || 0;
+            const costTransport = parseFloat(document.getElementById('costTransport').value) || 0;
+            const costLabor = parseFloat(document.getElementById('costLabor').value) || 0;
+            const costUtilities = parseFloat(document.getElementById('costUtilities').value) || 0;
+
+            const totalKgSold = parseFloat(document.getElementById('totalKgSold').value) || 0;
+            const actualPrice = parseFloat(document.getElementById('actualPrice').value) || 0;
+
+            const pScen1 = parseFloat(document.getElementById('priceScenario1').value) || 0;
+            const pScen2 = parseFloat(document.getElementById('priceScenario2').value) || 0;
+            const pScen3 = parseFloat(document.getElementById('priceScenario3').value) || 0;
+
+            if (numPigs <= 0 || totalKgSold <= 0) {
+                alert("Số lượng heo và số kg bán ra phải lớn hơn 0!");
+                return;
+            }
+
+            // 2. Tính Tổng Chi Phí
+            const totalBreedCost = numPigs * breedPrice;
+            
+            const totalFeedBags = feedBagStarter + feedBagGrower + feedBagFinisher;
+            const totalFeedKg = totalFeedBags * 25; // Bao 25kg
+            const totalFeedCost = (feedBagStarter * feedPriceStarter) + 
+                                  (feedBagGrower * feedPriceGrower) + 
+                                  (feedBagFinisher * feedPriceFinisher);
+
+            const totalOtherCost = costVet + costTransport + costLabor + costUtilities;
+            const totalCost = totalBreedCost + totalFeedCost + totalOtherCost;
+
+            // 3. Tính Giá Thành & Các Chỉ Số
+            const costPerKg = totalCost / totalKgSold; // Giá hòa vốn / kg
+            const costPerPig = totalCost / numPigs;     // Giá thành tính trên đầu heo
+            
+            // FCR = Tổng lượng cám (kg) / Tổng số kg heo bán ra
+            const fcr = totalKgSold > 0 ? (totalFeedKg / totalKgSold) : 0;
+            const feedCostPerKgGain = totalKgSold > 0 ? (totalFeedCost / totalKgSold) : 0;
+
+            // 4. Hiển thị Chi Phí & Giá Thành
+            document.getElementById('resTotalCost').innerText = formatVND(totalCost);
+            document.getElementById('resCostPerKg').innerText = formatVND(costPerKg);
+            document.getElementById('resCostPerPig').innerText = formatVND(costPerPig);
+
+            document.getElementById('resSubBreed').innerText = formatVND(totalBreedCost);
+            document.getElementById('resSubFeed').innerText = formatVND(totalFeedCost);
+            document.getElementById('resSubVet').innerText = formatVND(costVet);
+            document.getElementById('resSubOther').innerText = formatVND(costLabor + costUtilities + costTransport);
+
+            // 5. Hiển thị Đánh giá FCR & Chất lượng Thức ăn
+            document.getElementById('resFCR').innerText = fcr.toFixed(2);
+            document.getElementById('resTotalFeedKg').innerText = totalFeedKg.toLocaleString('vi-VN') + " kg (" + totalFeedBags + " bao)";
+            document.getElementById('resFeedCostPerKgGain').innerText = formatVND(feedCostPerKgGain);
+
+            let feedComment = "";
+            if (fcr < 2.3) {
+                feedComment = `<strong class="text-emerald-700"><i class="fa-solid fa-circle-check"></i> Chất lượng thức ăn CỰC TỐT (FCR < 2.3):</strong> Hấp thu dinh dưỡng vượt trội, lợn lớn nhanh, hao hụt thức ăn rất ít. Dòng cám này cực kỳ tối ưu cho trại.`;
+            } else if (fcr <= 2.6) {
+                feedComment = `<strong class="text-blue-700"><i class="fa-solid fa-circle-check"></i> Chất lượng thức ăn ĐẠT CHUẨN (FCR 2.3 - 2.6):</strong> Hiệu quả tiêu tốn thức ăn nằm trong mức tiêu chuẩn chăn nuôi trang trại tốt. Nguồn cám ổn định.`;
+            } else if (fcr <= 2.8) {
+                feedComment = `<strong class="text-amber-700"><i class="fa-solid fa-triangle-exclamation"></i> Chất lượng thức ăn TRUNG BÌNH/HƠI KÉM (FCR 2.6 - 2.8):</strong> Tốn cám hơn bình thường. Cần kiểm tra lại độ đạm, lãng phí rơi vãi cám ở máng hoặc hệ thống tiêu hóa của heo.`;
+            } else {
+                feedComment = `<strong class="text-red-700"><i class="fa-solid fa-triangle-exclamation"></i> Chất lượng thức ăn KÉM / LÃNG PHÍ CAO (FCR > 2.8):</strong> Tiêu tốn quá nhiều cám. Nguyên nhân có thể do cám thiếu chất, lợn bị bệnh đường ruột kéo dài, hoặc lãng phí cám nghiêm trọng khi cho ăn.`;
+            }
+            document.getElementById('feedQualityComment').innerHTML = feedComment;
+
+            // 6. Tính toán 3 Kịch bản Giá bán
+            const scenarios = [
+                { name: "Kịch bản 1 (Thấp)", price: pScen1 },
+                { name: "Kịch bản 2 (Kỳ vọng)", price: pScen2 },
+                { name: "Kịch bản 3 (Cao)", price: pScen3 }
+            ];
+
+            let scenarioHtml = "";
+            scenarios.forEach(s => {
+                const revenue = totalKgSold * s.price;
+                const profit = revenue - totalCost;
+                const profitPerPig = profit / numPigs;
+                const roi = totalCost > 0 ? (profit / totalCost) * 100 : 0;
+
+                const profitClass = profit >= 0 ? "text-emerald-600 font-bold" : "text-red-600 font-bold";
+
+                scenarioHtml += `
+                    <tr class="border-b hover:bg-slate-50">
+                        <td class="p-2 font-medium text-slate-700">${s.name}</td>
+                        <td class="p-2">${formatVND(s.price)}</td>
+                        <td class="p-2 ${profitClass}">${formatVND(profit)}</td>
+                        <td class="p-2 ${profitClass}">${formatVND(profitPerPig)}</td>
+                        <td class="p-2 ${profitClass}">${roi.toFixed(1)}%</td>
+                    </tr>
+                `;
+            });
+            document.getElementById('scenarioTable').innerHTML = scenarioHtml;
+
+            // 7. Nhận định tổng thể đợt chăn nuôi
+            const actualRevenue = totalKgSold * actualPrice;
+            const actualProfit = actualRevenue - totalCost;
+            const avgWeightPerPig = totalKgSold / numPigs;
+
+            let overallHtml = "";
+            overallHtml += `<p>• <strong>Biểu hiện đàn:</strong> Trọng lượng bình quân xuất bán đạt <strong>${avgWeightPerPig.toFixed(1)} kg/con</strong>.</p>`;
+            
+            if (actualProfit > 0) {
+                overallHtml += `<p>• <strong>Kinh tế:</strong> Đợt nuôi thành công có lãi. Với giá bán thực tế <strong>${formatVND(actualPrice)}/kg</strong>, tổng lợi nhuận đạt <strong class="text-emerald-600">${formatVND(actualProfit)}</strong> (${formatVND(actualProfit/numPigs)}/con).</p>`;
+            } else {
+                overallHtml += `<p>• <strong>Kinh tế:</strong> Đợt nuôi đang bị <strong class="text-red-600">LỖ ${formatVND(Math.abs(actualProfit))}</strong> ở mức giá bán ${formatVND(actualPrice)}/kg do giá thành sản xuất (${formatVND(costPerKg)}/kg) cao hơn giá thị trường.</p>`;
+            }
+
+            if (costPerKg > 58000) {
+                overallHtml += `<p>• <strong>Khuyến nghị tối ưu:</strong> Giá thành <strong>${formatVND(costPerKg)}/kg</strong> là tương đối cao. Cần thương lượng lại giá con giống hoặc tối ưu tiền lương, điện nước và thuốc ở các lứa sau để kéo giá thành xuống dưới 55.000 đ/kg.</p>`;
+            } else {
+                overallHtml += `<p>• <strong>Khuyến nghị tối ưu:</strong> Quản lý chi phí giá thành ở mức <strong>${formatVND(costPerKg)}/kg</strong> là rất tốt, đảm bảo an toàn tài chính kể cả khi thị trường biến động giảm.</p>`;
+            }
+
+            document.getElementById('overallAssessment').innerHTML = overallHtml;
+        }
+
+        // Chạy tính toán tự động lần đầu khi mở trang
+        window.onload = calculate;
+    </script>
+</body>
+</html>
