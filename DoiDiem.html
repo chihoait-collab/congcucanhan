@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cửa Hàng Đổi Điểm Thưởng (Kết Nối Google Sheet)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen pb-12">
+
+    <!-- Header & Điểm thưởng -->
+    <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-lg font-bold flex items-center">
+                <i class="fa-solid fa-gift mr-2 text-yellow-300"></i> Đổi Điểm Thưởng
+            </h1>
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-700 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold flex items-center border border-indigo-500">
+                    <i class="fa-solid fa-coins text-yellow-300 mr-1.5"></i>
+                    <span>Điểm: <strong id="userPoints" class="text-yellow-300">2,500</strong></span>
+                </div>
+                <!-- Nút Cài đặt Apps Script URL -->
+                <button onclick="toggleConfigModal()" class="bg-indigo-700 hover:bg-indigo-800 p-2 rounded-full border border-indigo-500 transition text-xs" title="Cài đặt kết nối Google Sheet">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Thanh chuyển 2 Tab -->
+        <div class="max-w-5xl mx-auto px-4 flex border-t border-indigo-500/50">
+            <button id="tabBtn1" onclick="switchTab('list')" class="flex-1 py-3 text-center font-semibold text-sm border-b-4 border-yellow-300 text-yellow-300 bg-indigo-700/40">
+                <i class="fa-solid fa-store mr-1.5"></i> 1. Danh Sách Sản Phẩm
+            </button>
+            <button id="tabBtn2" onclick="switchTab('detail')" class="flex-1 py-3 text-center font-semibold text-sm border-b-4 border-transparent text-indigo-200 hover:text-white">
+                <i class="fa-solid fa-circle-info mr-1.5"></i> 2. Chi Tiết Sản Phẩm
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 mt-6">
+
+        <!-- TAB 1: DANH SÁCH SẢN PHẨM -->
+        <section id="tabContentList" class="block space-y-6">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-bold text-slate-700">Sản phẩm từ Google Sheet</h2>
+                <button onclick="loadProductsFromSheet()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center">
+                    <i class="fa-solid fa-rotate mr-1"></i> Làm mới dữ liệu
+                </button>
+            </div>
+
+            <!-- Khung chứa danh sách sản phẩm -->
+            <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="col-span-full text-center py-12 text-slate-500">
+                    <i class="fa-solid fa-spinner fa-spin text-3xl mb-2 text-indigo-600"></i>
+                    <p class="text-sm">Đang tải dữ liệu từ Google Sheet...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: CHI TIẾT SẢN PHẨM -->
+        <section id="tabContentDetail" class="hidden">
+            
+            <!-- Trạng thái chưa chọn -->
+            <div id="emptyDetailState" class="bg-white rounded-2xl shadow-sm p-12 text-center space-y-4">
+                <div class="w-20 h-20 bg-indigo-50 text-indigo-400 rounded-full flex items-center justify-center mx-auto text-3xl">
+                    <i class="fa-solid fa-hand-pointer"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-700">Chưa chọn sản phẩm</h3>
+                <p class="text-slate-500 text-sm max-w-md mx-auto">Vui lòng chọn một sản phẩm ở **Tab 1. Danh Sách Sản Phẩm** để xem thông tin chi tiết.</p>
+                <button onclick="switchTab('list')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm px-5 py-2.5 rounded-lg transition">
+                    Quay lại danh sách
+                </button>
+            </div>
+
+            <!-- Khung hiển thị chi tiết -->
+            <div id="productDetailView" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 md:p-8">
+                    
+                    <div class="space-y-4">
+                        <div class="w-full h-72 bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center relative">
+                            <img id="detailImg" src="" alt="" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col justify-between space-y-6">
+                        <div class="space-y-4">
+                            <div>
+                                <span id="detailBadge" class="text-xs font-semibold text-indigo-600 uppercase tracking-wider"></span>
+                                <h2 id="detailTitle" class="text-2xl font-bold text-slate-800 mt-1"></h2>
+                            </div>
+
+                            <div class="flex items-baseline space-x-2 border-y border-slate-100 py-3">
+                                <span class="text-xs text-slate-500">Giá đổi:</span>
+                                <span id="detailPoints" class="text-2xl font-black text-indigo-600"></span>
+                                <span class="text-xs font-semibold text-indigo-600">điểm</span>
+                            </div>
+
+                            <div class="space-y-2">
+                                <h4 class="text-xs font-bold text-slate-700 uppercase">Mô tả sản phẩm:</h4>
+                                <p id="detailDesc" class="text-sm text-slate-600 leading-relaxed"></p>
+                            </div>
+
+                            <div class="space-y-2">
+                                <h4 class="text-xs font-bold text-slate-700 uppercase">Kho còn lại:</h4>
+                                <p id="detailStock" class="text-sm font-semibold text-slate-800"></p>
+                            </div>
+                        </div>
+
+                        <div class="pt-4 border-t border-slate-100 space-y-3">
+                            <button id="btnRedeem" onclick="redeemProduct()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-md transition flex justify-center items-center">
+                                <i class="fa-solid fa-gift mr-2"></i> Xác Nhận Đổi Quà
+                            </button>
+                            <button onclick="switchTab('list')" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl transition text-sm">
+                                Quay lại danh sách
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- MODAL CÀI ĐẶT APPS SCRIPT URL -->
+    <div id="configModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-base"><i class="fa-solid fa-link text-indigo-600 mr-2"></i>Cài Đặt Google Apps Script</h3>
+                <button onclick="toggleConfigModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <div class="space-y-2">
+                <label class="block text-xs font-semibold text-slate-600">Đường link Web App URL (Google Apps Script):</label>
+                <input type="url" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec" class="w-full border rounded-lg p-2.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500">
+                <p class="text-[11px] text-slate-500">Link này được lưu trực tiếp trên trình duyệt của bạn (LocalStorage) để sử dụng cho các lần sau.</p>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-2">
+                <button onclick="toggleConfigModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold">Hủy</button>
+                <button onclick="saveConfigUrl()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold">Lưu & Kết Nối</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let products = [];
+        let currentSelectedProduct = null;
+        let userPoints = 2500;
+        let scriptUrl = localStorage.getItem('APPS_SCRIPT_URL') || '';
+
+        // Tải danh sách từ Google Sheet
+        async function loadProductsFromSheet() {
+            const grid = document.getElementById('productGrid');
+            
+            if (!scriptUrl) {
+                grid.innerHTML = `
+                    <div class="col-span-full bg-amber-50 border border-amber-200 text-amber-800 p-6 rounded-xl text-center space-y-3">
+                        <i class="fa-solid fa-plug-circle-exclamation text-3xl text-amber-600"></i>
+                        <p class="text-sm font-semibold">Chưa cài đặt đường link Google Apps Script!</p>
+                        <p class="text-xs text-amber-700">Vui lòng nhấn nút cài đặt <i class="fa-solid fa-gear"></i> ở góc trên bên phải để dán link Web App URL.</p>
+                        <button onclick="toggleConfigModal()" class="bg-amber-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow">Cài đặt ngay</button>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = `
+                <div class="col-span-full text-center py-12 text-slate-500">
+                    <i class="fa-solid fa-spinner fa-spin text-3xl mb-2 text-indigo-600"></i>
+                    <p class="text-sm">Đang kết nối & tải dữ liệu sản phẩm từ Google Sheet...</p>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(scriptUrl);
+                const data = await response.json();
+                
+                if (data && Array.isArray(data)) {
+                    products = data;
+                    renderProducts();
+                } else {
+                    grid.innerHTML = `<p class="col-span-full text-center text-red-500 text-sm">Dữ liệu nhận được không hợp lệ!</p>`;
+                }
+            } catch (err) {
+                grid.innerHTML = `
+                    <div class="col-span-full bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-center text-xs space-y-1">
+                        <p class="font-bold">Lỗi kết nối tới Google Apps Script!</p>
+                        <p>Vui lòng kiểm tra lại link Web App URL hoặc quyền truy cập ("Anyone").</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Render danh sách sản phẩm
+        function renderProducts() {
+            const grid = document.getElementById('productGrid');
+            if (products.length === 0) {
+                grid.innerHTML = `<p class="col-span-full text-center text-slate-500 text-sm">Hiện chưa có sản phẩm nào trong kho.</p>`;
+                return;
+            }
+
+            grid.innerHTML = products.map(p => `
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition flex flex-col justify-between">
+                    <div>
+                        <div class="h-44 bg-slate-100 overflow-hidden relative">
+                            <img src="${p.image || 'https://via.placeholder.com/300'}" alt="${p.name}" class="w-full h-full object-cover">
+                            <span class="absolute top-2 left-2 bg-slate-900/70 text-white text-[10px] px-2 py-0.5 rounded font-medium">${p.category || 'Quà tặng'}</span>
+                        </div>
+                        <div class="p-4 space-y-2">
+                            <h3 class="font-bold text-slate-800 text-base line-clamp-1">${p.name}</h3>
+                            <div class="flex items-center space-x-1 text-indigo-600 font-black text-lg">
+                                <i class="fa-solid fa-coins text-sm"></i>
+                                <span>${Number(p.points).toLocaleString()} pts</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-4 pt-0">
+                        <button onclick="viewDetail('${p.id}')" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs py-2.5 rounded-lg transition">
+                            Xem Chi Tiết
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Xem chi tiết
+        function viewDetail(id) {
+            const product = products.find(p => String(p.id) === String(id));
+            if (!product) return;
+
+            currentSelectedProduct = product;
+
+            document.getElementById('detailImg').src = product.image || 'https://via.placeholder.com/300';
+            document.getElementById('detailBadge').innerText = product.category || 'Quà tặng';
+            document.getElementById('detailTitle').innerText = product.name;
+            document.getElementById('detailPoints').innerText = Number(product.points).toLocaleString();
+            document.getElementById('detailDesc').innerText = product.description;
+            document.getElementById('detailStock').innerText = `${product.stock} sản phẩm`;
+
+            document.getElementById('emptyDetailState').classList.add('hidden');
+            document.getElementById('productDetailView').classList.remove('hidden');
+
+            switchTab('detail');
+        }
+
+        // Thực hiện đổi quà & ghi lại dữ liệu về Google Sheet
+        async function redeemProduct() {
+            if (!currentSelectedProduct) return;
+
+            if (userPoints < currentSelectedProduct.points) {
+                alert("❌ Bạn không đủ điểm để đổi sản phẩm này!");
+                return;
+            }
+
+            if (currentSelectedProduct.stock <= 0) {
+                alert("❌ Sản phẩm này đã hết hàng trong kho!");
+                return;
+            }
+
+            const btnRedeem = document.getElementById('btnRedeem');
+            btnRedeem.disabled = true;
+            btnRedeem.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang xử lý...`;
+
+            try {
+                // Gửi dữ liệu cập nhật về Google Apps Script
+                await fetch(scriptUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        productId: currentSelectedProduct.id,
+                        pointsDeducted: currentSelectedProduct.points
+                    })
+                });
+
+                userPoints -= currentSelectedProduct.points;
+                currentSelectedProduct.stock -= 1;
+
+                document.getElementById('userPoints').innerText = userPoints.toLocaleString();
+                document.getElementById('detailStock').innerText = `${currentSelectedProduct.stock} sản phẩm`;
+
+                alert(`🎉 Bạn đã đổi thành công: ${currentSelectedProduct.name}`);
+            } catch (err) {
+                alert("❌ Có lỗi xảy ra khi đồng bộ với Google Sheet!");
+            } finally {
+                btnRedeem.disabled = false;
+                btnRedeem.innerHTML = `<i class="fa-solid fa-gift mr-2"></i> Xác Nhận Đổi Quà`;
+            }
+        }
+
+        // Chuyển Tab
+        function switchTab(tabName) {
+            const btn1 = document.getElementById('tabBtn1');
+            const btn2 = document.getElementById('tabBtn2');
+            const list = document.getElementById('tabContentList');
+            const detail = document.getElementById('tabContentDetail');
+
+            if (tabName === 'list') {
+                list.classList.remove('hidden');
+                detail.classList.add('hidden');
+                btn1.className = "flex-1 py-3 text-center font-semibold text-sm border-b-4 border-yellow-300 text-yellow-300 bg-indigo-700/40";
+                btn2.className = "flex-1 py-3 text-center font-semibold text-sm border-b-4 border-transparent text-indigo-200 hover:text-white";
+            } else {
+                list.classList.add('hidden');
+                detail.classList.remove('hidden');
+                btn2.className = "flex-1 py-3 text-center font-semibold text-sm border-b-4 border-yellow-300 text-yellow-300 bg-indigo-700/40";
+                btn1.className = "flex-1 py-3 text-center font-semibold text-sm border-b-4 border-transparent text-indigo-200 hover:text-white";
+            }
+        }
+
+        // Quản lý Modal Cài đặt
+        function toggleConfigModal() {
+            const modal = document.getElementById('configModal');
+            document.getElementById('scriptUrlInput').value = scriptUrl;
+            modal.classList.toggle('hidden');
+        }
+
+        function saveConfigUrl() {
+            const inputUrl = document.getElementById('scriptUrlInput').value.trim();
+            if (!inputUrl) {
+                alert("Vui lòng nhập đường link Web App URL!");
+                return;
+            }
+            scriptUrl = inputUrl;
+            localStorage.setItem('APPS_SCRIPT_URL', scriptUrl);
+            toggleConfigModal();
+            loadProductsFromSheet();
+        }
+
+        // Khởi tạo
+        window.onload = () => {
+            loadProductsFromSheet();
+        };
+    </script>
+</body>
+</html>
