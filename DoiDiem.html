@@ -43,7 +43,7 @@
         <!-- TAB 1: DANH SÁCH SẢN PHẨM -->
         <section id="tabContentList" class="block space-y-6">
             <div class="flex justify-between items-center">
-                <h2 class="text-lg font-bold text-slate-700">Sản phẩm từ Google Sheet</h2>
+                <h2 class="text-lg font-bold text-slate-700">Sản phẩm đổi thưởng</h2>
                 <button onclick="loadProductsFromSheet()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center">
                     <i class="fa-solid fa-rotate mr-1"></i> Làm mới dữ liệu
                 </button>
@@ -67,7 +67,7 @@
                     <i class="fa-solid fa-hand-pointer"></i>
                 </div>
                 <h3 class="text-lg font-bold text-slate-700">Chưa chọn sản phẩm</h3>
-                <p class="text-slate-500 text-sm max-w-md mx-auto">Vui lòng chọn một sản phẩm ở **Tab 1. Danh Sách Sản Phẩm** để xem thông tin chi tiết.</p>
+                <p class="text-slate-500 text-sm max-w-md mx-auto">Vui lòng chọn một sản phẩm ở <strong>Tab 1. Danh Sách Sản Phẩm</strong> để xem thông tin chi tiết.</p>
                 <button onclick="switchTab('list')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm px-5 py-2.5 rounded-lg transition">
                     Quay lại danh sách
                 </button>
@@ -78,7 +78,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 md:p-8">
                     
                     <div class="space-y-4">
-                        <div class="w-full h-72 bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center relative">
+                        <div class="w-full h-80 bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center relative border border-slate-200">
                             <img id="detailImg" src="" alt="" class="w-full h-full object-cover">
                         </div>
                     </div>
@@ -86,24 +86,32 @@
                     <div class="flex flex-col justify-between space-y-6">
                         <div class="space-y-4">
                             <div>
-                                <span id="detailBadge" class="text-xs font-semibold text-indigo-600 uppercase tracking-wider"></span>
+                                <div class="flex items-center space-x-2">
+                                    <span id="detailMaDVT" class="text-[11px] font-bold bg-indigo-50 text-indigo-600 px-2.5 py-0.5 rounded uppercase tracking-wider"></span>
+                                    <span id="detailMaSP" class="text-[11px] font-semibold text-slate-400"></span>
+                                </div>
                                 <h2 id="detailTitle" class="text-2xl font-bold text-slate-800 mt-1"></h2>
+                                <p id="detailMaVach" class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-barcode mr-1"></i> Mã vạch: <span></span></p>
                             </div>
 
-                            <div class="flex items-baseline space-x-2 border-y border-slate-100 py-3">
-                                <span class="text-xs text-slate-500">Giá đổi:</span>
-                                <span id="detailPoints" class="text-2xl font-black text-indigo-600"></span>
-                                <span class="text-xs font-semibold text-indigo-600">điểm</span>
+                            <div class="flex items-baseline space-x-3 border-y border-slate-100 py-3">
+                                <span class="text-xs text-slate-500">Điểm đổi:</span>
+                                <span id="detailPoints" class="text-3xl font-black text-indigo-600"></span>
+                                <span class="text-xs font-bold text-indigo-600">ĐIỂM</span>
+                                <span class="text-slate-300">|</span>
+                                <span class="text-xs text-slate-400">Giá bán: <span id="detailGiaBan" class="line-through"></span>đ</span>
                             </div>
 
-                            <div class="space-y-2">
-                                <h4 class="text-xs font-bold text-slate-700 uppercase">Mô tả sản phẩm:</h4>
-                                <p id="detailDesc" class="text-sm text-slate-600 leading-relaxed"></p>
-                            </div>
+                            <div class="space-y-3">
+                                <div>
+                                    <h4 class="text-xs font-bold text-slate-700 uppercase mb-1"><i class="fa-solid fa-leaf text-emerald-500 mr-1"></i> Thành phần:</h4>
+                                    <p id="detailThanhPhan" class="text-xs text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-100"></p>
+                                </div>
 
-                            <div class="space-y-2">
-                                <h4 class="text-xs font-bold text-slate-700 uppercase">Kho còn lại:</h4>
-                                <p id="detailStock" class="text-sm font-semibold text-slate-800"></p>
+                                <div>
+                                    <h4 class="text-xs font-bold text-slate-700 uppercase mb-1"><i class="fa-solid fa-book-open text-amber-500 mr-1"></i> Hướng dẫn sử dụng:</h4>
+                                    <p id="detailHDSD" class="text-xs text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-100"></p>
+                                </div>
                             </div>
                         </div>
 
@@ -175,10 +183,14 @@
 
             try {
                 const response = await fetch(scriptUrl);
-                const data = await response.json();
+                const result = await response.json();
                 
-                if (data && Array.isArray(data)) {
-                    products = data;
+                // Đọc đúng mảng dữ liệu từ API JSON { status: "success", data: [...] }
+                if (result && result.data && Array.isArray(result.data)) {
+                    products = result.data;
+                    renderProducts();
+                } else if (Array.isArray(result)) {
+                    products = result;
                     renderProducts();
                 } else {
                     grid.innerHTML = `<p class="col-span-full text-center text-red-500 text-sm">Dữ liệu nhận được không hợp lệ!</p>`;
@@ -193,31 +205,34 @@
             }
         }
 
-        // Render danh sách sản phẩm
+        // Render danh sách sản phẩm khớp với các cột API
         function renderProducts() {
             const grid = document.getElementById('productGrid');
             if (products.length === 0) {
-                grid.innerHTML = `<p class="col-span-full text-center text-slate-500 text-sm">Hiện chưa có sản phẩm nào trong kho.</p>`;
+                grid.innerHTML = `<p class="col-span-full text-center text-slate-500 text-sm">Hiện chưa có sản phẩm nào đủ điều kiện đổi điểm.</p>`;
                 return;
             }
 
             grid.innerHTML = products.map(p => `
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition flex flex-col justify-between">
                     <div>
-                        <div class="h-44 bg-slate-100 overflow-hidden relative">
-                            <img src="${p.image || 'https://via.placeholder.com/300'}" alt="${p.name}" class="w-full h-full object-cover">
-                            <span class="absolute top-2 left-2 bg-slate-900/70 text-white text-[10px] px-2 py-0.5 rounded font-medium">${p.category || 'Quà tặng'}</span>
+                        <div class="h-48 bg-slate-100 overflow-hidden relative border-b border-slate-100 flex items-center justify-center">
+                            <img src="${p.HinhAnh || 'https://via.placeholder.com/300'}" alt="${p.TenSP}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300?text=No+Image'">
+                            <span class="absolute top-2 left-2 bg-slate-900/70 text-white text-[10px] px-2 py-0.5 rounded font-medium">${p.MaDVT || 'Đơn vị'}</span>
                         </div>
                         <div class="p-4 space-y-2">
-                            <h3 class="font-bold text-slate-800 text-base line-clamp-1">${p.name}</h3>
-                            <div class="flex items-center space-x-1 text-indigo-600 font-black text-lg">
-                                <i class="fa-solid fa-coins text-sm"></i>
-                                <span>${Number(p.points).toLocaleString()} pts</span>
+                            <h3 class="font-bold text-slate-800 text-base line-clamp-1">${p.TenSP}</h3>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-1 text-indigo-600 font-black text-lg">
+                                    <i class="fa-solid fa-coins text-sm"></i>
+                                    <span>${Number(p.Diem || 0).toLocaleString()} pts</span>
+                                </div>
+                                <span class="text-xs text-slate-400 font-medium">${Number(p.GiaBan || 0).toLocaleString()}đ</span>
                             </div>
                         </div>
                     </div>
                     <div class="p-4 pt-0">
-                        <button onclick="viewDetail('${p.id}')" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs py-2.5 rounded-lg transition">
+                        <button onclick="viewDetail('${p.MaSP}')" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs py-2.5 rounded-lg transition">
                             Xem Chi Tiết
                         </button>
                     </div>
@@ -226,18 +241,22 @@
         }
 
         // Xem chi tiết
-        function viewDetail(id) {
-            const product = products.find(p => String(p.id) === String(id));
+        function viewDetail(maSP) {
+            const product = products.find(p => String(p.MaSP) === String(maSP));
             if (!product) return;
 
             currentSelectedProduct = product;
 
-            document.getElementById('detailImg').src = product.image || 'https://via.placeholder.com/300';
-            document.getElementById('detailBadge').innerText = product.category || 'Quà tặng';
-            document.getElementById('detailTitle').innerText = product.name;
-            document.getElementById('detailPoints').innerText = Number(product.points).toLocaleString();
-            document.getElementById('detailDesc').innerText = product.description;
-            document.getElementById('detailStock').innerText = `${product.stock} sản phẩm`;
+            document.getElementById('detailImg').src = product.HinhAnh || 'https://via.placeholder.com/300';
+            document.getElementById('detailMaDVT').innerText = product.MaDVT || 'Đơn vị';
+            document.getElementById('detailMaSP').innerText = `Mã SP: ${product.MaSP}`;
+            document.getElementById('detailTitle').innerText = product.TenSP;
+            document.getElementById('detailMaVach').querySelector('span').innerText = product.MaVach || 'Chưa cập nhật';
+            document.getElementById('detailPoints').innerText = Number(product.Diem || 0).toLocaleString();
+            document.getElementById('detailGiaBan').innerText = Number(product.GiaBan || 0).toLocaleString();
+            
+            document.getElementById('detailThanhPhan').innerText = product.ThanhPhan || 'Chưa có thông tin thành phần.';
+            document.getElementById('detailHDSD').innerText = product.HuongDanSuDung || 'Chưa có hướng dẫn sử dụng.';
 
             document.getElementById('emptyDetailState').classList.add('hidden');
             document.getElementById('productDetailView').classList.remove('hidden');
@@ -245,17 +264,14 @@
             switchTab('detail');
         }
 
-        // Thực hiện đổi quà & ghi lại dữ liệu về Google Sheet
+        // Thực hiện đổi quà
         async function redeemProduct() {
             if (!currentSelectedProduct) return;
 
-            if (userPoints < currentSelectedProduct.points) {
-                alert("❌ Bạn không đủ điểm để đổi sản phẩm này!");
-                return;
-            }
+            const diemDoi = Number(currentSelectedProduct.Diem || 0);
 
-            if (currentSelectedProduct.stock <= 0) {
-                alert("❌ Sản phẩm này đã hết hàng trong kho!");
+            if (userPoints < diemDoi) {
+                alert("❌ Bạn không đủ điểm để đổi sản phẩm này!");
                 return;
             }
 
@@ -264,26 +280,23 @@
             btnRedeem.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang xử lý...`;
 
             try {
-                // Gửi dữ liệu cập nhật về Google Apps Script
+                // Gửi dữ liệu đổi quà về Google Apps Script
                 await fetch(scriptUrl, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        productId: currentSelectedProduct.id,
-                        pointsDeducted: currentSelectedProduct.points
+                        maSP: currentSelectedProduct.MaSP,
+                        diemTru: diemDoi
                     })
                 });
 
-                userPoints -= currentSelectedProduct.points;
-                currentSelectedProduct.stock -= 1;
-
+                userPoints -= diemDoi;
                 document.getElementById('userPoints').innerText = userPoints.toLocaleString();
-                document.getElementById('detailStock').innerText = `${currentSelectedProduct.stock} sản phẩm`;
 
-                alert(`🎉 Bạn đã đổi thành công: ${currentSelectedProduct.name}`);
+                alert(`🎉 Bạn đã đổi thành công: ${currentSelectedProduct.TenSP}`);
             } catch (err) {
-                alert("❌ Có lỗi xảy ra khi đồng bộ với Google Sheet!");
+                alert("❌ Có lỗi xảy ra khi kết nối hệ thống!");
             } finally {
                 btnRedeem.disabled = false;
                 btnRedeem.innerHTML = `<i class="fa-solid fa-gift mr-2"></i> Xác Nhận Đổi Quà`;
