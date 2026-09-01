@@ -70,7 +70,7 @@
                 <div class="flex items-center space-x-3 w-full sm:w-auto justify-between border-t sm:border-t-0 border-indigo-200/60 pt-3 sm:pt-0">
                     <div class="text-right">
                         <span class="text-[11px] text-slate-500 block">Điểm khả dụng</span>
-                        <span id="custPoints" class="text-xl font-black text-indigo-600">0</span> <span class="text-xs font-bold text-indigo-600">pts</span>
+                        <span id="custPoints" class="text-xl font-black text-indigo-600">0</span> <span class="text-xs font-bold text-indigo-600">điểm</span>
                     </div>
                     <button type="button" onclick="resetCustomer()" class="text-xs text-slate-500 hover:text-red-600 font-semibold underline p-1">Đổi SĐT</button>
                 </div>
@@ -172,11 +172,11 @@
             <div class="border-t pt-4 space-y-3">
                 <div class="flex justify-between items-center text-sm font-bold">
                     <span class="text-slate-600">Tổng điểm cần trừ:</span>
-                    <span class="text-xl font-black text-indigo-600"><span id="cartTotalPoints">0</span> pts</span>
+                    <span class="text-xl font-black text-indigo-600"><span id="cartTotalPoints">0</span> điểm</span>
                 </div>
                 <div class="flex justify-between items-center text-xs text-slate-500">
                     <span>Điểm khả dụng hiện tại:</span>
-                    <span id="cartUserPoints" class="font-bold text-slate-700">0 pts</span>
+                    <span id="cartUserPoints" class="font-bold text-slate-700">0 điểm</span>
                 </div>
 
                 <button id="btnSubmitOrder" type="button" onclick="submitOrder()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow transition flex justify-center items-center text-sm">
@@ -251,10 +251,10 @@
         }
 
         function updatePointDisplay() {
-            const pts = Number(currentCustomer?.DiemConLai || 0);
-            document.getElementById('custPoints').innerText = pts.toLocaleString();
-            document.getElementById('userPoints').innerText = pts.toLocaleString();
-            document.getElementById('cartUserPoints').innerText = `${pts.toLocaleString()} pts`;
+            const điểm = Number(currentCustomer?.DiemConLai || 0);
+            document.getElementById('custPoints').innerText = điểm.toLocaleString();
+            document.getElementById('userPoints').innerText = điểm.toLocaleString();
+            document.getElementById('cartUserPoints').innerText = `${điểm.toLocaleString()} điểm`;
         }
 
         function resetCustomer() {
@@ -305,7 +305,7 @@
                         <div class="p-4 space-y-2">
                             <h3 class="font-bold text-slate-800 line-clamp-1">${p.TenSP}</h3>
                             <div class="text-indigo-600 font-black text-lg">
-                                <i class="fa-solid fa-coins text-sm"></i> ${Number(p.Diem || 0).toLocaleString()} pts
+                                <i class="fa-solid fa-coins text-sm"></i> ${Number(p.Diem || 0).toLocaleString()} điểm
                             </div>
                         </div>
                     </div>
@@ -373,7 +373,7 @@
                     <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border">
                         <div class="flex-1 pr-2">
                             <h4 class="font-bold text-xs text-slate-800 line-clamp-1">${item.tenSP}</h4>
-                            <span class="text-xs text-indigo-600 font-semibold">${item.diem.toLocaleString()} pts / món</span>
+                            <span class="text-xs text-indigo-600 font-semibold">${item.diem.toLocaleString()} điểm / món</span>
                         </div>
                         <div class="flex items-center space-x-2">
                             <button type="button" onclick="changeQty(${index}, -1)" class="w-6 h-6 bg-slate-200 text-slate-700 rounded-full font-bold text-xs flex items-center justify-center">-</button>
@@ -410,7 +410,7 @@
             const userPoints = Number(currentCustomer.DiemConLai || 0);
 
             if (userPoints < totalPoints) {
-                return alert(`❌ Khách hàng không đủ điểm! Cần ${totalPoints.toLocaleString()} pts nhưng chỉ có ${userPoints.toLocaleString()} pts.`);
+                return alert(`❌ Khách hàng không đủ điểm! Cần ${totalPoints.toLocaleString()} điểm nhưng chỉ có ${userPoints.toLocaleString()} điểm.`);
             }
 
             const btn = document.getElementById('btnSubmitOrder');
