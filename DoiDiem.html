@@ -26,7 +26,7 @@
                     <span id="cartBadge" class="ml-1 bg-white text-amber-700 px-1.5 py-0.2 rounded-full text-[11px] font-black">0</span>
                 </button>
                 <!-- Nút Cài đặt -->
-                <button type="button" onclick="toggleConfigModal()" class="bg-indigo-700 hover:bg-indigo-800 p-2 rounded-full border border-indigo-500 transition text-xs" title="Cài đặt Google Sheet URL">
+                <button type="button" onclick="toggleConfigModal()" class="bg-indigo-700 hover:bg-indigo-800 p-2 rounded-full border border-indigo-500 transition text-xs" title="Cài đặt Google Apps Script URL">
                     <i class="fa-solid fa-gear"></i>
                 </button>
             </div>
@@ -165,7 +165,7 @@
             
             <!-- Danh sách quà trong giỏ -->
             <div id="cartItemsList" class="overflow-y-auto flex-1 space-y-3 pr-1">
-                <!-- Javascript render tại đây -->
+                <!-- Render từ JS -->
             </div>
 
             <!-- Tổng kết điểm giỏ hàng -->
@@ -194,29 +194,49 @@
                 <button type="button" onclick="toggleConfigModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="space-y-2">
-                <label class="block text-xs font-semibold text-slate-600">Đường link Web App URL:</label>
+                <label class="block text-xs font-semibold text-slate-600">URL Web App (Để trống để dùng URL mặc định):</label>
                 <input type="url" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec" class="w-full border rounded-lg p-2.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500">
+                <p class="text-[11px] text-slate-400">Nếu bạn dán URL mới vào đây, hệ thống sẽ ưu tiên sử dụng URL này thay cho cấu hình mặc định.</p>
             </div>
-            <div class="flex justify-end space-x-2 pt-2">
-                <button type="button" onclick="toggleConfigModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold">Hủy</button>
-                <button type="button" onclick="saveConfigUrl()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold">Lưu & Kết Nối</button>
+            <div class="flex justify-between items-center pt-2">
+                <button type="button" onclick="resetToDefaultUrl()" class="text-xs text-red-500 hover:text-red-700 font-semibold underline">Xóa ghi đè</button>
+                <div class="flex space-x-2">
+                    <button type="button" onclick="toggleConfigModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold">Hủy</button>
+                    <button type="button" onclick="saveConfigUrl()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold">Lưu Cấu Hình</button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        // -------------------------------------------------------------
+        // CẤU HÌNH APPS SCRIPT URL CỐ ĐỊNH (DEFAULT)
+        // Thay đường link Apps Script triển khai của bạn vào đây:
+        // -------------------------------------------------------------
+        const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxYOUR_DEPLOYMENT_ID_HERE/exec";
+
         let products = [];
         let currentSelectedProduct = null;
         let currentCustomer = null;
-        let cart = []; // Mảng chứa thông tin các món quà chọn đổi
-        let scriptUrl = localStorage.getItem('APPS_SCRIPT_URL') || '';
+        let cart = [];
+
+        // HÀM LẤY URL ƯU TIÊN: Custom LocalStorage -> Mặc định
+        function getScriptUrl() {
+            const savedUrl = localStorage.getItem('APPS_SCRIPT_URL_OVERRIDE');
+            if (savedUrl && savedUrl.trim() !== "") {
+                return savedUrl.trim();
+            }
+            return DEFAULT_SCRIPT_URL;
+        }
 
         // 1. TRA CỨU KHÁCH HÀNG
         async function checkCustomerPhone() {
             const phoneInput = document.getElementById('inputPhone').value.trim();
             if (!phoneInput) return alert("⚠️ Vui lòng nhập số điện thoại!");
-            if (!scriptUrl) {
-                alert("⚠️ Vui lòng cài đặt Web App URL trước!");
+
+            const currentUrl = getScriptUrl();
+            if (!currentUrl || currentUrl.includes("YOUR_DEPLOYMENT_ID_HERE")) {
+                alert("⚠️ Vui lòng gán đường link Apps Script thực tế vào biến DEFAULT_SCRIPT_URL hoặc trong phần Cài Đặt!");
                 return toggleConfigModal();
             }
 
@@ -225,7 +245,7 @@
             btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang tra cứu...`;
 
             try {
-                const response = await fetch(`${scriptUrl}?sdt=${encodeURIComponent(phoneInput)}`);
+                const response = await fetch(`${currentUrl}?sdt=${encodeURIComponent(phoneInput)}`);
                 const result = await response.json();
 
                 if (result.status === "success" && result.data) {
@@ -280,7 +300,7 @@
             grid.innerHTML = `<div class="col-span-full text-center py-12 text-slate-500"><i class="fa-solid fa-spinner fa-spin text-3xl mb-2 text-indigo-600"></i><p class="text-sm">Đang tải sản phẩm...</p></div>`;
 
             try {
-                const response = await fetch(scriptUrl);
+                const response = await fetch(getScriptUrl());
                 const result = await response.json();
                 products = result.data || result || [];
                 renderProducts();
@@ -401,7 +421,7 @@
             renderCartItems();
         }
 
-        // 4. GỬI ĐƠN ĐỔI QUÀ (LƯU SHEET & GỬI EMAIL)
+        // 4. GỬI ĐƠN ĐỔI QUÀ
         async function submitOrder() {
             if (!currentCustomer) return alert("⚠️ Chưa xác thực số điện thoại!");
             if (!cart.length) return alert("⚠️ Giỏ quà đang trống!");
@@ -433,22 +453,20 @@
             };
 
             try {
-                // Gửi dữ liệu đơn hàng dạng POST
-                await fetch(scriptUrl, {
+                await fetch(getScriptUrl(), {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(orderPayload)
                 });
 
-                // Cập nhật lại điểm sau khi trừ
                 currentCustomer.DiemConLai = userPoints - totalPoints;
                 updatePointDisplay();
                 cart = [];
                 updateCartBadge();
                 toggleCartModal();
 
-                alert("🎉 Đã gửi đơn hàng đổi quà thành công! Đơn hàng đã được lưu và Email thông báo đã gửi cho quản trị viên.");
+                alert("🎉 Đã gửi đơn hàng đổi quà thành công! Đơn hàng đã được xử lý và Email thông báo đã được gửi.");
             } catch (err) {
                 alert("❌ Có lỗi xảy ra khi gửi đơn hàng!");
             } finally {
@@ -457,7 +475,7 @@
             }
         }
 
-        // Chuyển Tab & Chi tiết
+        // CHUYỂN TAB & CHI TIẾT SẢN PHẨM
         function viewDetail(maSP) {
             const product = products.find(p => String(p.MaSP) === String(maSP));
             if (!product) return;
@@ -494,18 +512,30 @@
             }
         }
 
+        // 5. Quản lý Modal Cấu Hình URL
         function toggleConfigModal() {
-            document.getElementById('scriptUrlInput').value = scriptUrl;
+            const overrideUrl = localStorage.getItem('APPS_SCRIPT_URL_OVERRIDE') || '';
+            document.getElementById('scriptUrlInput').value = overrideUrl;
             document.getElementById('configModal').classList.toggle('hidden');
         }
 
         function saveConfigUrl() {
             const inputUrl = document.getElementById('scriptUrlInput').value.trim();
-            if (!inputUrl) return alert("Vui lòng nhập đường link!");
-            scriptUrl = inputUrl;
-            localStorage.setItem('APPS_SCRIPT_URL', scriptUrl);
+            if (inputUrl) {
+                localStorage.setItem('APPS_SCRIPT_URL_OVERRIDE', inputUrl);
+                alert("✅ Đã ghi đè URL Web App thành công!");
+            } else {
+                localStorage.removeItem('APPS_SCRIPT_URL_OVERRIDE');
+                alert("ℹ️ Đã sử dụng lại URL mặc định!");
+            }
             toggleConfigModal();
-            alert("✅ Đã lưu cấu hình Apps Script URL!");
+        }
+
+        function resetToDefaultUrl() {
+            localStorage.removeItem('APPS_SCRIPT_URL_OVERRIDE');
+            document.getElementById('scriptUrlInput').value = '';
+            alert("🔄 Đã xóa cấu hình riêng. Hệ thống quay về URL mặc định!");
+            toggleConfigModal();
         }
     </script>
 </body>
