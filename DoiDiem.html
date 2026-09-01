@@ -67,7 +67,7 @@
                 <div class="flex items-center space-x-3 w-full sm:w-auto justify-between border-t sm:border-t-0 border-indigo-200/60 pt-3 sm:pt-0">
                     <div class="text-right">
                         <span class="text-[11px] text-slate-500 block">Điểm khả dụng</span>
-                        <span id="custPoints" class="text-xl font-black text-indigo-600">0</span> <span class="text-xs font-bold text-indigo-600">pts</span>
+                        <span id="custPoints" class="text-xl font-black text-indigo-600">0</span> <span class="text-xs font-bold text-indigo-600">điểm</span>
                     </div>
                     <button type="button" onclick="resetCustomer()" class="text-xs text-slate-500 hover:text-red-600 font-semibold underline p-1 cursor-pointer">
                         Đổi SĐT
@@ -315,7 +315,7 @@
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-1 text-indigo-600 font-black text-lg">
                                     <i class="fa-solid fa-coins text-sm"></i>
-                                    <span>${Number(p.Diem || 0).toLocaleString()} pts</span>
+                                    <span>${Number(p.Diem || 0).toLocaleString()} điểm</span>
                                 </div>
                                 <span class="text-xs text-slate-400 font-medium">${Number(p.GiaBan || 0).toLocaleString()}đ</span>
                             </div>
