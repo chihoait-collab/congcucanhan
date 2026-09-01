@@ -21,7 +21,7 @@
                     <span>Điểm: <strong id="userPoints" class="text-yellow-300">0</strong></span>
                 </div>
                 <!-- Nút Cài đặt Apps Script URL -->
-                <button onclick="toggleConfigModal()" class="bg-indigo-700 hover:bg-indigo-800 p-2 rounded-full border border-indigo-500 transition text-xs" title="Cài đặt kết nối Google Sheet">
+                <button type="button" onclick="toggleConfigModal()" class="bg-indigo-700 hover:bg-indigo-800 p-2 rounded-full border border-indigo-500 transition text-xs cursor-pointer" title="Cài đặt kết nối Google Sheet">
                     <i class="fa-solid fa-gear"></i>
                 </button>
             </div>
@@ -29,10 +29,10 @@
 
         <!-- Thanh chuyển 2 Tab -->
         <div class="max-w-5xl mx-auto px-4 flex border-t border-indigo-500/50">
-            <button id="tabBtn1" onclick="switchTab('list')" class="flex-1 py-3 text-center font-semibold text-sm border-b-4 border-yellow-300 text-yellow-300 bg-indigo-700/40">
+            <button id="tabBtn1" type="button" onclick="switchTab('list')" class="flex-1 py-3 text-center font-semibold text-sm border-b-4 border-yellow-300 text-yellow-300 bg-indigo-700/40">
                 <i class="fa-solid fa-store mr-1.5"></i> 1. Danh Sách Sản Phẩm
             </button>
-            <button id="tabBtn2" onclick="switchTab('detail')" class="flex-1 py-3 text-center font-semibold text-sm border-b-4 border-transparent text-indigo-200 hover:text-white">
+            <button id="tabBtn2" type="button" onclick="switchTab('detail')" class="flex-1 py-3 text-center font-semibold text-sm border-b-4 border-transparent text-indigo-200 hover:text-white">
                 <i class="fa-solid fa-circle-info mr-1.5"></i> 2. Chi Tiết Sản Phẩm
             </button>
         </div>
@@ -48,7 +48,7 @@
                 </h3>
                 <div class="flex flex-col sm:flex-row gap-3">
                     <input type="tel" id="inputPhone" placeholder="Nhập số điện thoại khách hàng (Ví dụ: 0912345678)..." class="flex-1 border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-                    <button id="btnCheckPhone" onclick="checkCustomerPhone()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition flex justify-center items-center shadow-sm">
+                    <button id="btnCheckPhone" type="button" onclick="checkCustomerPhone()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition flex justify-center items-center shadow-sm cursor-pointer">
                         <i class="fa-solid fa-magnifying-glass mr-2"></i> Kiểm Tra Điểm
                     </button>
                 </div>
@@ -69,7 +69,7 @@
                         <span class="text-[11px] text-slate-500 block">Điểm khả dụng</span>
                         <span id="custPoints" class="text-xl font-black text-indigo-600">0</span> <span class="text-xs font-bold text-indigo-600">pts</span>
                     </div>
-                    <button onclick="resetCustomer()" class="text-xs text-slate-500 hover:text-red-600 font-semibold underline p-1">
+                    <button type="button" onclick="resetCustomer()" class="text-xs text-slate-500 hover:text-red-600 font-semibold underline p-1 cursor-pointer">
                         Đổi SĐT
                     </button>
                 </div>
@@ -80,12 +80,11 @@
         <section id="tabContentList" class="block space-y-6">
             <div class="flex justify-between items-center">
                 <h2 class="text-lg font-bold text-slate-700">Sản phẩm đổi thưởng</h2>
-                <button onclick="loadProductsFromSheet()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center">
+                <button type="button" onclick="loadProductsFromSheet()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center cursor-pointer">
                     <i class="fa-solid fa-rotate mr-1"></i> Làm mới danh sách
                 </button>
             </div>
 
-            <!-- Khung chứa danh sách sản phẩm -->
             <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div class="col-span-full text-center py-12 text-slate-500">
                     <i class="fa-solid fa-lock text-3xl mb-2 text-slate-400"></i>
@@ -96,23 +95,19 @@
 
         <!-- TAB 2: CHI TIẾT SẢN PHẨM -->
         <section id="tabContentDetail" class="hidden">
-            
-            <!-- Trạng thái chưa chọn -->
             <div id="emptyDetailState" class="bg-white rounded-2xl shadow-sm p-12 text-center space-y-4">
                 <div class="w-20 h-20 bg-indigo-50 text-indigo-400 rounded-full flex items-center justify-center mx-auto text-3xl">
                     <i class="fa-solid fa-hand-pointer"></i>
                 </div>
                 <h3 class="text-lg font-bold text-slate-700">Chưa chọn sản phẩm</h3>
                 <p class="text-slate-500 text-sm max-w-md mx-auto">Vui lòng chọn một sản phẩm ở <strong>Tab 1. Danh Sách Sản Phẩm</strong> để xem thông tin chi tiết.</p>
-                <button onclick="switchTab('list')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm px-5 py-2.5 rounded-lg transition">
+                <button type="button" onclick="switchTab('list')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm px-5 py-2.5 rounded-lg transition cursor-pointer">
                     Quay lại danh sách
                 </button>
             </div>
 
-            <!-- Khung hiển thị chi tiết -->
             <div id="productDetailView" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 md:p-8">
-                    
                     <div class="space-y-4">
                         <div class="w-full h-80 bg-slate-50 rounded-xl overflow-hidden flex items-center justify-center relative border border-slate-200">
                             <img id="detailImg" src="" alt="" class="w-full h-full object-contain p-4">
@@ -152,17 +147,16 @@
                         </div>
 
                         <div class="pt-4 border-t border-slate-100 space-y-3">
-                            <button id="btnRedeem" onclick="redeemProduct()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-md transition flex justify-center items-center">
+                            <button id="btnRedeem" type="button" onclick="redeemProduct()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-md transition flex justify-center items-center cursor-pointer">
                                 <i class="fa-solid fa-gift mr-2"></i> Xác Nhận Đổi Quà
                             </button>
-                            <button onclick="switchTab('list')" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl transition text-sm">
+                            <button type="button" onclick="switchTab('list')" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl transition text-sm cursor-pointer">
                                 Quay lại danh sách
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
-
         </section>
 
     </main>
@@ -172,7 +166,7 @@
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 class="font-bold text-slate-800 text-base"><i class="fa-solid fa-link text-indigo-600 mr-2"></i>Cài Đặt Google Apps Script</h3>
-                <button onclick="toggleConfigModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button type="button" onclick="toggleConfigModal()" class="text-slate-400 hover:text-slate-600 cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             
             <div class="space-y-2">
@@ -182,8 +176,8 @@
             </div>
 
             <div class="flex justify-end space-x-2 pt-2">
-                <button onclick="toggleConfigModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold">Hủy</button>
-                <button onclick="saveConfigUrl()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold">Lưu & Kết Nối</button>
+                <button type="button" onclick="toggleConfigModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold cursor-pointer">Hủy</button>
+                <button type="button" onclick="saveConfigUrl()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold cursor-pointer">Lưu & Kết Nối</button>
             </div>
         </div>
     </div>
@@ -191,7 +185,7 @@
     <script>
         let products = [];
         let currentSelectedProduct = null;
-        let currentCustomer = null; // Lưu thông tin khách hàng hiện tại
+        let currentCustomer = null;
         let scriptUrl = localStorage.getItem('APPS_SCRIPT_URL') || '';
 
         // 1. KIỂM TRA SỐ ĐIỆN THOẠI KHÁCH HÀNG
@@ -213,32 +207,28 @@
             btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang tra cứu...`;
 
             try {
-                // Gọi API tra cứu điểm theo SĐT (Thêm tham số ?sdt=...)
                 const response = await fetch(`${scriptUrl}?sdt=${encodeURIComponent(phoneInput)}`);
                 const result = await response.json();
 
                 if (result.status === "success" && result.data) {
                     currentCustomer = result.data;
                     
-                    // Cập nhật thông tin lên giao diện
                     document.getElementById('custName').innerText = currentCustomer.TenKHNCC || 'Khách hàng';
                     document.getElementById('custPhone').innerText = currentCustomer.SDT || phoneInput;
                     document.getElementById('custAddress').innerText = currentCustomer.DiaChi || 'Chưa cập nhật';
                     document.getElementById('custPoints').innerText = Number(currentCustomer.DiemConLai || 0).toLocaleString();
                     document.getElementById('userPoints').innerText = Number(currentCustomer.DiemConLai || 0).toLocaleString();
 
-                    // Chuyển chế độ hiển thị
                     document.getElementById('phoneInputSection').classList.add('hidden');
                     document.getElementById('customerInfoSection').classList.remove('hidden');
 
-                    // Tải danh sách sản phẩm sau khi đã xác thực SĐT đúng
                     loadProductsFromSheet();
                 } else {
                     alert(`❌ ${result.message || "Không tìm thấy thông tin khách hàng với SĐT này. Vui lòng kiểm tra lại!"}`);
                 }
             } catch (err) {
                 alert("❌ Lỗi kết nối đến máy chủ! Vui lòng kiểm tra lại cấu hình Web App URL.");
-            } font-medium {
+            } finally {
                 btn.disabled = false;
                 btn.innerHTML = `<i class="fa-solid fa-magnifying-glass mr-2"></i> Kiểm Tra Điểm`;
             }
@@ -252,7 +242,6 @@
             document.getElementById('customerInfoSection').classList.add('hidden');
             document.getElementById('phoneInputSection').classList.remove('hidden');
             
-            // Xóa danh sách sản phẩm hiển thị
             document.getElementById('productGrid').innerHTML = `
                 <div class="col-span-full text-center py-12 text-slate-500">
                     <i class="fa-solid fa-lock text-3xl mb-2 text-slate-400"></i>
@@ -333,7 +322,7 @@
                         </div>
                     </div>
                     <div class="p-4 pt-0">
-                        <button onclick="viewDetail('${p.MaSP}')" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs py-2.5 rounded-lg transition">
+                        <button type="button" onclick="viewDetail('${p.MaSP}')" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs py-2.5 rounded-lg transition cursor-pointer">
                             Xem Chi Tiết
                         </button>
                     </div>
@@ -398,7 +387,6 @@
                     })
                 });
 
-                // Cập nhật điểm khả dụng cục bộ
                 currentCustomer.DiemConLai = userPoints - diemDoi;
                 document.getElementById('userPoints').innerText = currentCustomer.DiemConLai.toLocaleString();
                 document.getElementById('custPoints').innerText = currentCustomer.DiemConLai.toLocaleString();
@@ -448,6 +436,7 @@
             scriptUrl = inputUrl;
             localStorage.setItem('APPS_SCRIPT_URL', scriptUrl);
             toggleConfigModal();
+            alert("✅ Đã lưu cấu hình Apps Script Web App URL!");
         }
     </script>
 </body>
