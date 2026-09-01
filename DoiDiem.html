@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cửa Hàng Đổi Điểm Thưởng (Kết Nối Google Sheet)</title>
+    <title>Cửa Hàng Đổi Điểm Thưởng (Có Giỏ Hàng)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
@@ -20,14 +20,18 @@
                     <i class="fa-solid fa-coins text-yellow-300 mr-1.5"></i>
                     <span>Điểm: <strong id="userPoints" class="text-yellow-300">0</strong></span>
                 </div>
-                <!-- Nút Cài đặt Apps Script URL -->
-                <button type="button" onclick="toggleConfigModal()" class="bg-indigo-700 hover:bg-indigo-800 p-2 rounded-full border border-indigo-500 transition text-xs cursor-pointer" title="Cài đặt kết nối Google Sheet">
+                <!-- Nút Giỏ Hàng -->
+                <button type="button" onclick="toggleCartModal()" class="relative bg-amber-500 hover:bg-amber-600 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center shadow">
+                    <i class="fa-solid fa-cart-shopping mr-1.5"></i> Giỏ quà
+                    <span id="cartBadge" class="ml-1 bg-white text-amber-700 px-1.5 py-0.2 rounded-full text-[11px] font-black">0</span>
+                </button>
+                <!-- Nút Cài đặt -->
+                <button type="button" onclick="toggleConfigModal()" class="bg-indigo-700 hover:bg-indigo-800 p-2 rounded-full border border-indigo-500 transition text-xs" title="Cài đặt Google Sheet URL">
                     <i class="fa-solid fa-gear"></i>
                 </button>
             </div>
         </div>
 
-        <!-- Thanh chuyển 2 Tab -->
         <div class="max-w-5xl mx-auto px-4 flex border-t border-indigo-500/50">
             <button id="tabBtn1" type="button" onclick="switchTab('list')" class="flex-1 py-3 text-center font-semibold text-sm border-b-4 border-yellow-300 text-yellow-300 bg-indigo-700/40">
                 <i class="fa-solid fa-store mr-1.5"></i> 1. Danh Sách Sản Phẩm
@@ -48,13 +52,12 @@
                 </h3>
                 <div class="flex flex-col sm:flex-row gap-3">
                     <input type="tel" id="inputPhone" placeholder="Nhập số điện thoại khách hàng (Ví dụ: 0912345678)..." class="flex-1 border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-                    <button id="btnCheckPhone" type="button" onclick="checkCustomerPhone()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition flex justify-center items-center shadow-sm cursor-pointer">
+                    <button id="btnCheckPhone" type="button" onclick="checkCustomerPhone()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition flex justify-center items-center shadow-sm">
                         <i class="fa-solid fa-magnifying-glass mr-2"></i> Kiểm Tra Điểm
                     </button>
                 </div>
             </div>
 
-            <!-- THÔNG TIN KHÁCH HÀNG (HIỂN THỊ KHI XÁC THỰC THÀNH CÔNG) -->
             <div id="customerInfoSection" class="hidden bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div class="space-y-1">
                     <div class="flex items-center space-x-2">
@@ -67,11 +70,9 @@
                 <div class="flex items-center space-x-3 w-full sm:w-auto justify-between border-t sm:border-t-0 border-indigo-200/60 pt-3 sm:pt-0">
                     <div class="text-right">
                         <span class="text-[11px] text-slate-500 block">Điểm khả dụng</span>
-                        <span id="custPoints" class="text-xl font-black text-indigo-600">0</span> <span class="text-xs font-bold text-indigo-600">điểm</span>
+                        <span id="custPoints" class="text-xl font-black text-indigo-600">0</span> <span class="text-xs font-bold text-indigo-600">pts</span>
                     </div>
-                    <button type="button" onclick="resetCustomer()" class="text-xs text-slate-500 hover:text-red-600 font-semibold underline p-1 cursor-pointer">
-                        Đổi SĐT
-                    </button>
+                    <button type="button" onclick="resetCustomer()" class="text-xs text-slate-500 hover:text-red-600 font-semibold underline p-1">Đổi SĐT</button>
                 </div>
             </div>
         </section>
@@ -80,15 +81,15 @@
         <section id="tabContentList" class="block space-y-6">
             <div class="flex justify-between items-center">
                 <h2 class="text-lg font-bold text-slate-700">Sản phẩm đổi thưởng</h2>
-                <button type="button" onclick="loadProductsFromSheet()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center cursor-pointer">
-                    <i class="fa-solid fa-rotate mr-1"></i> Làm mới danh sách
+                <button type="button" onclick="loadProductsFromSheet()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center">
+                    <i class="fa-solid fa-rotate mr-1"></i> Làm mới
                 </button>
             </div>
 
             <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div class="col-span-full text-center py-12 text-slate-500">
                     <i class="fa-solid fa-lock text-3xl mb-2 text-slate-400"></i>
-                    <p class="text-sm">Vui lòng nhập <strong>Số điện thoại</strong> ở trên để xem danh sách sản phẩm đổi thưởng.</p>
+                    <p class="text-sm">Vui lòng nhập <strong>Số điện thoại</strong> để xem sản phẩm đổi thưởng.</p>
                 </div>
             </div>
         </section>
@@ -100,10 +101,7 @@
                     <i class="fa-solid fa-hand-pointer"></i>
                 </div>
                 <h3 class="text-lg font-bold text-slate-700">Chưa chọn sản phẩm</h3>
-                <p class="text-slate-500 text-sm max-w-md mx-auto">Vui lòng chọn một sản phẩm ở <strong>Tab 1. Danh Sách Sản Phẩm</strong> để xem thông tin chi tiết.</p>
-                <button type="button" onclick="switchTab('list')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm px-5 py-2.5 rounded-lg transition cursor-pointer">
-                    Quay lại danh sách
-                </button>
+                <button type="button" onclick="switchTab('list')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm px-5 py-2.5 rounded-lg transition">Quay lại danh sách</button>
             </div>
 
             <div id="productDetailView" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -122,37 +120,31 @@
                                     <span id="detailMaSP" class="text-[11px] font-semibold text-slate-400"></span>
                                 </div>
                                 <h2 id="detailTitle" class="text-2xl font-bold text-slate-800 mt-1"></h2>
-                                <p id="detailMaVach" class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-barcode mr-1"></i> Mã vạch: <span></span></p>
                             </div>
 
                             <div class="flex items-baseline space-x-3 border-y border-slate-100 py-3">
                                 <span class="text-xs text-slate-500">Điểm đổi:</span>
                                 <span id="detailPoints" class="text-3xl font-black text-indigo-600"></span>
                                 <span class="text-xs font-bold text-indigo-600">ĐIỂM</span>
-                                <span class="text-slate-300">|</span>
-                                <span class="text-xs text-slate-400">Giá bán: <span id="detailGiaBan" class="line-through"></span>đ</span>
                             </div>
 
                             <div class="space-y-3">
                                 <div>
-                                    <h4 class="text-xs font-bold text-slate-700 uppercase mb-1"><i class="fa-solid fa-leaf text-emerald-500 mr-1"></i> Thành phần:</h4>
-                                    <p id="detailThanhPhan" class="text-xs text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-100"></p>
+                                    <h4 class="text-xs font-bold text-slate-700 uppercase mb-1">Thành phần:</h4>
+                                    <p id="detailThanhPhan" class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100"></p>
                                 </div>
-
                                 <div>
-                                    <h4 class="text-xs font-bold text-slate-700 uppercase mb-1"><i class="fa-solid fa-book-open text-amber-500 mr-1"></i> Hướng dẫn sử dụng:</h4>
-                                    <p id="detailHDSD" class="text-xs text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-100"></p>
+                                    <h4 class="text-xs font-bold text-slate-700 uppercase mb-1">Hướng dẫn sử dụng:</h4>
+                                    <p id="detailHDSD" class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100"></p>
                                 </div>
                             </div>
                         </div>
 
                         <div class="pt-4 border-t border-slate-100 space-y-3">
-                            <button id="btnRedeem" type="button" onclick="redeemProduct()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-md transition flex justify-center items-center cursor-pointer">
-                                <i class="fa-solid fa-gift mr-2"></i> Xác Nhận Đổi Quà
+                            <button id="btnAddToCartDetail" type="button" onclick="addToCartCurrent()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl shadow-md transition flex justify-center items-center">
+                                <i class="fa-solid fa-cart-plus mr-2"></i> Thêm Vào Giỏ Quà
                             </button>
-                            <button type="button" onclick="switchTab('list')" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl transition text-sm cursor-pointer">
-                                Quay lại danh sách
-                            </button>
+                            <button type="button" onclick="switchTab('list')" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl transition text-sm">Quay lại danh sách</button>
                         </div>
                     </div>
                 </div>
@@ -161,23 +153,53 @@
 
     </main>
 
+    <!-- MODAL GIỎ HÀNG -->
+    <div id="cartModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-base flex items-center">
+                    <i class="fa-solid fa-cart-shopping text-amber-500 mr-2"></i> Giỏ Quà Đổi Thưởng
+                </h3>
+                <button type="button" onclick="toggleCartModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <!-- Danh sách quà trong giỏ -->
+            <div id="cartItemsList" class="overflow-y-auto flex-1 space-y-3 pr-1">
+                <!-- Javascript render tại đây -->
+            </div>
+
+            <!-- Tổng kết điểm giỏ hàng -->
+            <div class="border-t pt-4 space-y-3">
+                <div class="flex justify-between items-center text-sm font-bold">
+                    <span class="text-slate-600">Tổng điểm cần trừ:</span>
+                    <span class="text-xl font-black text-indigo-600"><span id="cartTotalPoints">0</span> pts</span>
+                </div>
+                <div class="flex justify-between items-center text-xs text-slate-500">
+                    <span>Điểm khả dụng hiện tại:</span>
+                    <span id="cartUserPoints" class="font-bold text-slate-700">0 pts</span>
+                </div>
+
+                <button id="btnSubmitOrder" type="button" onclick="submitOrder()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow transition flex justify-center items-center text-sm">
+                    <i class="fa-solid fa-paper-plane mr-2"></i> Gửi Đơn Đổi Quà & Gửi Email
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL CÀI ĐẶT APPS SCRIPT URL -->
     <div id="configModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 class="font-bold text-slate-800 text-base"><i class="fa-solid fa-link text-indigo-600 mr-2"></i>Cài Đặt Google Apps Script</h3>
-                <button type="button" onclick="toggleConfigModal()" class="text-slate-400 hover:text-slate-600 cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button type="button" onclick="toggleConfigModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            
             <div class="space-y-2">
-                <label class="block text-xs font-semibold text-slate-600">Đường link Web App URL (Google Apps Script):</label>
+                <label class="block text-xs font-semibold text-slate-600">Đường link Web App URL:</label>
                 <input type="url" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec" class="w-full border rounded-lg p-2.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500">
-                <p class="text-[11px] text-slate-500">Link này được lưu trực tiếp trên trình duyệt của bạn (LocalStorage) để sử dụng cho các lần sau.</p>
             </div>
-
             <div class="flex justify-end space-x-2 pt-2">
-                <button type="button" onclick="toggleConfigModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold cursor-pointer">Hủy</button>
-                <button type="button" onclick="saveConfigUrl()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold cursor-pointer">Lưu & Kết Nối</button>
+                <button type="button" onclick="toggleConfigModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold">Hủy</button>
+                <button type="button" onclick="saveConfigUrl()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold">Lưu & Kết Nối</button>
             </div>
         </div>
     </div>
@@ -186,20 +208,16 @@
         let products = [];
         let currentSelectedProduct = null;
         let currentCustomer = null;
+        let cart = []; // Mảng chứa thông tin các món quà chọn đổi
         let scriptUrl = localStorage.getItem('APPS_SCRIPT_URL') || '';
 
-        // 1. KIỂM TRA SỐ ĐIỆN THOẠI KHÁCH HÀNG
+        // 1. TRA CỨU KHÁCH HÀNG
         async function checkCustomerPhone() {
             const phoneInput = document.getElementById('inputPhone').value.trim();
-            if (!phoneInput) {
-                alert("⚠️ Vui lòng nhập số điện thoại khách hàng!");
-                return;
-            }
-
+            if (!phoneInput) return alert("⚠️ Vui lòng nhập số điện thoại!");
             if (!scriptUrl) {
-                alert("⚠️ Vui lòng cài đặt Web App URL trong biểu tượng Bánh răng trước!");
-                toggleConfigModal();
-                return;
+                alert("⚠️ Vui lòng cài đặt Web App URL trước!");
+                return toggleConfigModal();
             }
 
             const btn = document.getElementById('btnCheckPhone');
@@ -212,195 +230,251 @@
 
                 if (result.status === "success" && result.data) {
                     currentCustomer = result.data;
-                    
                     document.getElementById('custName').innerText = currentCustomer.TenKHNCC || 'Khách hàng';
                     document.getElementById('custPhone').innerText = currentCustomer.SDT || phoneInput;
                     document.getElementById('custAddress').innerText = currentCustomer.DiaChi || 'Chưa cập nhật';
-                    document.getElementById('custPoints').innerText = Number(currentCustomer.DiemConLai || 0).toLocaleString();
-                    document.getElementById('userPoints').innerText = Number(currentCustomer.DiemConLai || 0).toLocaleString();
+                    updatePointDisplay();
 
                     document.getElementById('phoneInputSection').classList.add('hidden');
                     document.getElementById('customerInfoSection').classList.remove('hidden');
 
                     loadProductsFromSheet();
                 } else {
-                    alert(`❌ ${result.message || "Không tìm thấy thông tin khách hàng với SĐT này. Vui lòng kiểm tra lại!"}`);
+                    alert(`❌ ${result.message || "Không tìm thấy thông tin KH!"}`);
                 }
             } catch (err) {
-                alert("❌ Lỗi kết nối đến máy chủ! Vui lòng kiểm tra lại cấu hình Web App URL.");
+                alert("❌ Lỗi kết nối máy chủ Apps Script!");
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = `<i class="fa-solid fa-magnifying-glass mr-2"></i> Kiểm Tra Điểm`;
             }
         }
 
-        // Đổi số điện thoại khác
+        function updatePointDisplay() {
+            const pts = Number(currentCustomer?.DiemConLai || 0);
+            document.getElementById('custPoints').innerText = pts.toLocaleString();
+            document.getElementById('userPoints').innerText = pts.toLocaleString();
+            document.getElementById('cartUserPoints').innerText = `${pts.toLocaleString()} pts`;
+        }
+
         function resetCustomer() {
             currentCustomer = null;
+            cart = [];
+            updateCartBadge();
             document.getElementById('userPoints').innerText = "0";
             document.getElementById('inputPhone').value = "";
             document.getElementById('customerInfoSection').classList.add('hidden');
             document.getElementById('phoneInputSection').classList.remove('hidden');
-            
             document.getElementById('productGrid').innerHTML = `
                 <div class="col-span-full text-center py-12 text-slate-500">
                     <i class="fa-solid fa-lock text-3xl mb-2 text-slate-400"></i>
-                    <p class="text-sm">Vui lòng nhập <strong>Số điện thoại</strong> ở trên để xem danh sách sản phẩm đổi thưởng.</p>
+                    <p class="text-sm">Vui lòng nhập <strong>Số điện thoại</strong> để xem sản phẩm.</p>
                 </div>
             `;
             switchTab('list');
         }
 
-        // 2. TẢI DANH SÁCH SẢN PHẨM TỪ GOOGLE SHEET
+        // 2. TẢI DANH SÁCH SẢN PHẨM
         async function loadProductsFromSheet() {
             const grid = document.getElementById('productGrid');
-            
-            if (!currentCustomer) {
-                grid.innerHTML = `
-                    <div class="col-span-full text-center py-12 text-slate-500">
-                        <i class="fa-solid fa-lock text-3xl mb-2 text-slate-400"></i>
-                        <p class="text-sm">Vui lòng nhập <strong>Số điện thoại</strong> ở trên để xem danh sách sản phẩm đổi thưởng.</p>
-                    </div>
-                `;
-                return;
-            }
-
-            grid.innerHTML = `
-                <div class="col-span-full text-center py-12 text-slate-500">
-                    <i class="fa-solid fa-spinner fa-spin text-3xl mb-2 text-indigo-600"></i>
-                    <p class="text-sm">Đang tải dữ liệu sản phẩm...</p>
-                </div>
-            `;
+            grid.innerHTML = `<div class="col-span-full text-center py-12 text-slate-500"><i class="fa-solid fa-spinner fa-spin text-3xl mb-2 text-indigo-600"></i><p class="text-sm">Đang tải sản phẩm...</p></div>`;
 
             try {
                 const response = await fetch(scriptUrl);
                 const result = await response.json();
-                
-                if (result && result.data && Array.isArray(result.data)) {
-                    products = result.data;
-                    renderProducts();
-                } else if (Array.isArray(result)) {
-                    products = result;
-                    renderProducts();
-                } else {
-                    grid.innerHTML = `<p class="col-span-full text-center text-red-500 text-sm">Dữ liệu sản phẩm nhận được không hợp lệ!</p>`;
-                }
+                products = result.data || result || [];
+                renderProducts();
             } catch (err) {
-                grid.innerHTML = `
-                    <div class="col-span-full bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-center text-xs space-y-1">
-                        <p class="font-bold">Lỗi kết nối tới Google Apps Script!</p>
-                        <p>Vui lòng kiểm tra lại link Web App URL hoặc quyền truy cập ("Anyone").</p>
-                    </div>
-                `;
+                grid.innerHTML = `<p class="col-span-full text-center text-red-500 text-sm">Lỗi tải danh sách sản phẩm!</p>`;
             }
         }
 
-        // Render danh sách sản phẩm
         function renderProducts() {
             const grid = document.getElementById('productGrid');
-            if (products.length === 0) {
-                grid.innerHTML = `<p class="col-span-full text-center text-slate-500 text-sm">Hiện chưa có sản phẩm nào đủ điều kiện đổi điểm.</p>`;
+            if (!products.length) {
+                grid.innerHTML = `<p class="col-span-full text-center text-slate-500 text-sm">Chưa có sản phẩm đổi thưởng.</p>`;
                 return;
             }
 
             grid.innerHTML = products.map(p => `
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition flex flex-col justify-between">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col justify-between">
                     <div>
-                        <div class="h-48 bg-slate-50 overflow-hidden relative border-b border-slate-100 flex items-center justify-center p-2">
-                            <img src="${p.HinhAnh || 'https://via.placeholder.com/300'}" alt="${p.TenSP}" class="w-full h-full object-contain" onerror="this.src='https://via.placeholder.com/300?text=No+Image'">
-                            <span class="absolute top-2 left-2 bg-slate-900/70 text-white text-[10px] px-2 py-0.5 rounded font-medium">${p.MaDVT || 'Đơn vị'}</span>
+                        <div class="h-44 bg-slate-50 p-2 flex items-center justify-center border-b">
+                            <img src="${p.HinhAnh || 'https://via.placeholder.com/300'}" class="w-full h-full object-contain">
                         </div>
                         <div class="p-4 space-y-2">
-                            <h3 class="font-bold text-slate-800 text-base line-clamp-1">${p.TenSP}</h3>
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-1 text-indigo-600 font-black text-lg">
-                                    <i class="fa-solid fa-coins text-sm"></i>
-                                    <span>${Number(p.Diem || 0).toLocaleString()} điểm</span>
-                                </div>
-                                <span class="text-xs text-slate-400 font-medium">${Number(p.GiaBan || 0).toLocaleString()}đ</span>
+                            <h3 class="font-bold text-slate-800 line-clamp-1">${p.TenSP}</h3>
+                            <div class="text-indigo-600 font-black text-lg">
+                                <i class="fa-solid fa-coins text-sm"></i> ${Number(p.Diem || 0).toLocaleString()} pts
                             </div>
                         </div>
                     </div>
-                    <div class="p-4 pt-0">
-                        <button type="button" onclick="viewDetail('${p.MaSP}')" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs py-2.5 rounded-lg transition cursor-pointer">
-                            Xem Chi Tiết
-                        </button>
+                    <div class="p-4 pt-0 flex gap-2">
+                        <button type="button" onclick="viewDetail('${p.MaSP}')" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2 rounded-lg transition">Chi tiết</button>
+                        <button type="button" onclick="addToCart('${p.MaSP}')" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-2 rounded-lg transition"><i class="fa-solid fa-cart-plus mr-1"></i>Thêm giỏ</button>
                     </div>
                 </div>
             `).join('');
         }
 
-        // Xem chi tiết
-        function viewDetail(maSP) {
+        // 3. XỬ LÝ GIỎ HÀNG
+        function addToCart(maSP) {
+            if (!currentCustomer) return alert("⚠️ Vui lòng xác thực SĐT khách hàng trước!");
             const product = products.find(p => String(p.MaSP) === String(maSP));
             if (!product) return;
 
-            currentSelectedProduct = product;
-
-            document.getElementById('detailImg').src = product.HinhAnh || 'https://via.placeholder.com/300';
-            document.getElementById('detailMaDVT').innerText = product.MaDVT || 'Đơn vị';
-            document.getElementById('detailMaSP').innerText = `Mã SP: ${product.MaSP}`;
-            document.getElementById('detailTitle').innerText = product.TenSP;
-            document.getElementById('detailMaVach').querySelector('span').innerText = product.MaVach || 'Chưa cập nhật';
-            document.getElementById('detailPoints').innerText = Number(product.Diem || 0).toLocaleString();
-            document.getElementById('detailGiaBan').innerText = Number(product.GiaBan || 0).toLocaleString();
-            
-            document.getElementById('detailThanhPhan').innerText = product.ThanhPhan || 'Chưa có thông tin thành phần.';
-            document.getElementById('detailHDSD').innerText = product.HuongDanSuDung || 'Chưa có hướng dẫn sử dụng.';
-
-            document.getElementById('emptyDetailState').classList.add('hidden');
-            document.getElementById('productDetailView').classList.remove('hidden');
-
-            switchTab('detail');
+            const existing = cart.find(item => String(item.maSP) === String(maSP));
+            if (existing) {
+                existing.soLuong += 1;
+            } else {
+                cart.push({
+                    maSP: product.MaSP,
+                    tenSP: product.TenSP,
+                    diem: Number(product.Diem || 0),
+                    soLuong: 1
+                });
+            }
+            updateCartBadge();
+            alert(`✅ Đã thêm "${product.TenSP}" vào giỏ quà!`);
         }
 
-        // 3. THỰC HIỆN ĐỔI QUÀ
-        async function redeemProduct() {
-            if (!currentCustomer) {
-                alert("⚠️ Vui lòng xác thực số điện thoại khách hàng trước!");
+        function addToCartCurrent() {
+            if (currentSelectedProduct) addToCart(currentSelectedProduct.MaSP);
+        }
+
+        function updateCartBadge() {
+            const count = cart.reduce((total, item) => total + item.soLuong, 0);
+            document.getElementById('cartBadge').innerText = count;
+        }
+
+        function toggleCartModal() {
+            const modal = document.getElementById('cartModal');
+            if (modal.classList.contains('hidden')) {
+                renderCartItems();
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function renderCartItems() {
+            const list = document.getElementById('cartItemsList');
+            if (!cart.length) {
+                list.innerHTML = `<p class="text-center text-slate-400 py-8 text-sm">Giỏ quà đang trống.</p>`;
+                document.getElementById('cartTotalPoints').innerText = "0";
                 return;
             }
 
-            if (!currentSelectedProduct) return;
+            let totalPoints = 0;
+            list.innerHTML = cart.map((item, index) => {
+                const itemTotal = item.diem * item.soLuong;
+                totalPoints += itemTotal;
+                return `
+                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border">
+                        <div class="flex-1 pr-2">
+                            <h4 class="font-bold text-xs text-slate-800 line-clamp-1">${item.tenSP}</h4>
+                            <span class="text-xs text-indigo-600 font-semibold">${item.diem.toLocaleString()} pts / món</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button type="button" onclick="changeQty(${index}, -1)" class="w-6 h-6 bg-slate-200 text-slate-700 rounded-full font-bold text-xs flex items-center justify-center">-</button>
+                            <span class="text-xs font-bold w-4 text-center">${item.soLuong}</span>
+                            <button type="button" onclick="changeQty(${index}, 1)" class="w-6 h-6 bg-slate-200 text-slate-700 rounded-full font-bold text-xs flex items-center justify-center">+</button>
+                            <button type="button" onclick="removeItem(${index})" class="text-red-500 hover:text-red-700 text-xs ml-1"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
 
-            const diemDoi = Number(currentSelectedProduct.Diem || 0);
+            document.getElementById('cartTotalPoints').innerText = totalPoints.toLocaleString();
+        }
+
+        function changeQty(index, change) {
+            cart[index].soLuong += change;
+            if (cart[index].soLuong <= 0) cart.splice(index, 1);
+            updateCartBadge();
+            renderCartItems();
+        }
+
+        function removeItem(index) {
+            cart.splice(index, 1);
+            updateCartBadge();
+            renderCartItems();
+        }
+
+        // 4. GỬI ĐƠN ĐỔI QUÀ (LƯU SHEET & GỬI EMAIL)
+        async function submitOrder() {
+            if (!currentCustomer) return alert("⚠️ Chưa xác thực số điện thoại!");
+            if (!cart.length) return alert("⚠️ Giỏ quà đang trống!");
+
+            const totalPoints = cart.reduce((sum, item) => sum + (item.diem * item.soLuong), 0);
             const userPoints = Number(currentCustomer.DiemConLai || 0);
 
-            if (userPoints < diemDoi) {
-                alert("❌ Bạn không đủ điểm để đổi sản phẩm này!");
-                return;
+            if (userPoints < totalPoints) {
+                return alert(`❌ Khách hàng không đủ điểm! Cần ${totalPoints.toLocaleString()} pts nhưng chỉ có ${userPoints.toLocaleString()} pts.`);
             }
 
-            const btnRedeem = document.getElementById('btnRedeem');
-            btnRedeem.disabled = true;
-            btnRedeem.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang xử lý...`;
+            const btn = document.getElementById('btnSubmitOrder');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang gửi đơn quà...`;
+
+            const orderPayload = {
+                khachHang: {
+                    ten: currentCustomer.TenKHNCC || 'Khách hàng',
+                    sdt: currentCustomer.SDT,
+                    diaChi: currentCustomer.DiaChi || 'Chưa cập nhật'
+                },
+                danhSachQua: cart.map(i => ({
+                    maSP: i.maSP,
+                    tenSP: i.tenSP,
+                    soLuong: i.soLuong,
+                    tongDiem: i.diem * i.soLuong
+                })),
+                tongDiemDoi: totalPoints
+            };
 
             try {
+                // Gửi dữ liệu đơn hàng dạng POST
                 await fetch(scriptUrl, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sdt: currentCustomer.SDT,
-                        maSP: currentSelectedProduct.MaSP,
-                        diemTru: diemDoi
-                    })
+                    body: JSON.stringify(orderPayload)
                 });
 
-                currentCustomer.DiemConLai = userPoints - diemDoi;
-                document.getElementById('userPoints').innerText = currentCustomer.DiemConLai.toLocaleString();
-                document.getElementById('custPoints').innerText = currentCustomer.DiemConLai.toLocaleString();
+                // Cập nhật lại điểm sau khi trừ
+                currentCustomer.DiemConLai = userPoints - totalPoints;
+                updatePointDisplay();
+                cart = [];
+                updateCartBadge();
+                toggleCartModal();
 
-                alert(`🎉 Đổi thành công: ${currentSelectedProduct.TenSP}`);
+                alert("🎉 Đã gửi đơn hàng đổi quà thành công! Đơn hàng đã được lưu và Email thông báo đã gửi cho quản trị viên.");
             } catch (err) {
-                alert("❌ Có lỗi xảy ra khi kết nối hệ thống!");
+                alert("❌ Có lỗi xảy ra khi gửi đơn hàng!");
             } finally {
-                btnRedeem.disabled = false;
-                btnRedeem.innerHTML = `<i class="fa-solid fa-gift mr-2"></i> Xác Nhận Đổi Quà`;
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-paper-plane mr-2"></i> Gửi Đơn Đổi Quà & Gửi Email`;
             }
         }
 
-        // Chuyển Tab
+        // Chuyển Tab & Chi tiết
+        function viewDetail(maSP) {
+            const product = products.find(p => String(p.MaSP) === String(maSP));
+            if (!product) return;
+            currentSelectedProduct = product;
+            document.getElementById('detailImg').src = product.HinhAnh || 'https://via.placeholder.com/300';
+            document.getElementById('detailMaDVT').innerText = product.MaDVT || 'Đơn vị';
+            document.getElementById('detailMaSP').innerText = `Mã SP: ${product.MaSP}`;
+            document.getElementById('detailTitle').innerText = product.TenSP;
+            document.getElementById('detailPoints').innerText = Number(product.Diem || 0).toLocaleString();
+            document.getElementById('detailThanhPhan').innerText = product.ThanhPhan || 'Chưa có thông tin.';
+            document.getElementById('detailHDSD').innerText = product.HuongDanSuDung || 'Chưa có thông tin.';
+
+            document.getElementById('emptyDetailState').classList.add('hidden');
+            document.getElementById('productDetailView').classList.remove('hidden');
+            switchTab('detail');
+        }
+
         function switchTab(tabName) {
             const btn1 = document.getElementById('tabBtn1');
             const btn2 = document.getElementById('tabBtn2');
@@ -420,23 +494,18 @@
             }
         }
 
-        // Quản lý Modal Cài đặt
         function toggleConfigModal() {
-            const modal = document.getElementById('configModal');
             document.getElementById('scriptUrlInput').value = scriptUrl;
-            modal.classList.toggle('hidden');
+            document.getElementById('configModal').classList.toggle('hidden');
         }
 
         function saveConfigUrl() {
             const inputUrl = document.getElementById('scriptUrlInput').value.trim();
-            if (!inputUrl) {
-                alert("Vui lòng nhập đường link Web App URL!");
-                return;
-            }
+            if (!inputUrl) return alert("Vui lòng nhập đường link!");
             scriptUrl = inputUrl;
             localStorage.setItem('APPS_SCRIPT_URL', scriptUrl);
             toggleConfigModal();
-            alert("✅ Đã lưu cấu hình Apps Script Web App URL!");
+            alert("✅ Đã lưu cấu hình Apps Script URL!");
         }
     </script>
 </body>
