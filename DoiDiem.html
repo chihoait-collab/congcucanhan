@@ -18,7 +18,7 @@
             <div class="flex items-center space-x-3">
                 <div class="bg-indigo-700 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold flex items-center border border-indigo-500">
                     <i class="fa-solid fa-coins text-yellow-300 mr-1.5"></i>
-                    <span>Điểm: <strong id="userPoints" class="text-yellow-300">2,500</strong></span>
+                    <span>Điểm: <strong id="userPoints" class="text-yellow-300">0</strong></span>
                 </div>
                 <!-- Nút Cài đặt Apps Script URL -->
                 <button onclick="toggleConfigModal()" class="bg-indigo-700 hover:bg-indigo-800 p-2 rounded-full border border-indigo-500 transition text-xs" title="Cài đặt kết nối Google Sheet">
@@ -38,22 +38,58 @@
         </div>
     </header>
 
-    <main class="max-w-5xl mx-auto px-4 mt-6">
+    <main class="max-w-5xl mx-auto px-4 mt-6 space-y-6">
+
+        <!-- KHUNG XÁC THỰC SỐ ĐIỆN THOẠI KHÁCH HÀNG -->
+        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+            <div id="phoneInputSection" class="space-y-4">
+                <h3 class="text-base font-bold text-slate-800 flex items-center">
+                    <i class="fa-solid fa-user-check text-indigo-600 mr-2"></i> Nhập Số Điện Thoại Để Tra Cứu Điểm
+                </h3>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <input type="tel" id="inputPhone" placeholder="Nhập số điện thoại khách hàng (Ví dụ: 0912345678)..." class="flex-1 border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button id="btnCheckPhone" onclick="checkCustomerPhone()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition flex justify-center items-center shadow-sm">
+                        <i class="fa-solid fa-magnifying-glass mr-2"></i> Kiểm Tra Điểm
+                    </button>
+                </div>
+            </div>
+
+            <!-- THÔNG TIN KHÁCH HÀNG (HIỂN THỊ KHI XÁC THỰC THÀNH CÔNG) -->
+            <div id="customerInfoSection" class="hidden bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div class="space-y-1">
+                    <div class="flex items-center space-x-2">
+                        <span class="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Đã xác thực</span>
+                        <h4 id="custName" class="font-bold text-slate-800 text-base"></h4>
+                    </div>
+                    <p class="text-xs text-slate-600"><i class="fa-solid fa-phone text-slate-400 mr-1.5"></i>SĐT: <span id="custPhone" class="font-semibold"></span></p>
+                    <p class="text-xs text-slate-600"><i class="fa-solid fa-location-dot text-slate-400 mr-1.5"></i>Địa chỉ: <span id="custAddress"></span></p>
+                </div>
+                <div class="flex items-center space-x-3 w-full sm:w-auto justify-between border-t sm:border-t-0 border-indigo-200/60 pt-3 sm:pt-0">
+                    <div class="text-right">
+                        <span class="text-[11px] text-slate-500 block">Điểm khả dụng</span>
+                        <span id="custPoints" class="text-xl font-black text-indigo-600">0</span> <span class="text-xs font-bold text-indigo-600">pts</span>
+                    </div>
+                    <button onclick="resetCustomer()" class="text-xs text-slate-500 hover:text-red-600 font-semibold underline p-1">
+                        Đổi SĐT
+                    </button>
+                </div>
+            </div>
+        </section>
 
         <!-- TAB 1: DANH SÁCH SẢN PHẨM -->
         <section id="tabContentList" class="block space-y-6">
             <div class="flex justify-between items-center">
                 <h2 class="text-lg font-bold text-slate-700">Sản phẩm đổi thưởng</h2>
                 <button onclick="loadProductsFromSheet()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center">
-                    <i class="fa-solid fa-rotate mr-1"></i> Làm mới dữ liệu
+                    <i class="fa-solid fa-rotate mr-1"></i> Làm mới danh sách
                 </button>
             </div>
 
             <!-- Khung chứa danh sách sản phẩm -->
             <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div class="col-span-full text-center py-12 text-slate-500">
-                    <i class="fa-solid fa-spinner fa-spin text-3xl mb-2 text-indigo-600"></i>
-                    <p class="text-sm">Đang tải dữ liệu từ Google Sheet...</p>
+                    <i class="fa-solid fa-lock text-3xl mb-2 text-slate-400"></i>
+                    <p class="text-sm">Vui lòng nhập <strong>Số điện thoại</strong> ở trên để xem danh sách sản phẩm đổi thưởng.</p>
                 </div>
             </div>
         </section>
@@ -78,8 +114,8 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 md:p-8">
                     
                     <div class="space-y-4">
-                        <div class="w-full h-80 bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center relative border border-slate-200">
-                            <img id="detailImg" src="" alt="" class="w-full h-full object-contain">
+                        <div class="w-full h-80 bg-slate-50 rounded-xl overflow-hidden flex items-center justify-center relative border border-slate-200">
+                            <img id="detailImg" src="" alt="" class="w-full h-full object-contain p-4">
                         </div>
                     </div>
 
@@ -155,20 +191,86 @@
     <script>
         let products = [];
         let currentSelectedProduct = null;
-        let userPoints = 2500;
+        let currentCustomer = null; // Lưu thông tin khách hàng hiện tại
         let scriptUrl = localStorage.getItem('APPS_SCRIPT_URL') || '';
 
-        // Tải danh sách từ Google Sheet
+        // 1. KIỂM TRA SỐ ĐIỆN THOẠI KHÁCH HÀNG
+        async function checkCustomerPhone() {
+            const phoneInput = document.getElementById('inputPhone').value.trim();
+            if (!phoneInput) {
+                alert("⚠️ Vui lòng nhập số điện thoại khách hàng!");
+                return;
+            }
+
+            if (!scriptUrl) {
+                alert("⚠️ Vui lòng cài đặt Web App URL trong biểu tượng Bánh răng trước!");
+                toggleConfigModal();
+                return;
+            }
+
+            const btn = document.getElementById('btnCheckPhone');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang tra cứu...`;
+
+            try {
+                // Gọi API tra cứu điểm theo SĐT (Thêm tham số ?sdt=...)
+                const response = await fetch(`${scriptUrl}?sdt=${encodeURIComponent(phoneInput)}`);
+                const result = await response.json();
+
+                if (result.status === "success" && result.data) {
+                    currentCustomer = result.data;
+                    
+                    // Cập nhật thông tin lên giao diện
+                    document.getElementById('custName').innerText = currentCustomer.TenKHNCC || 'Khách hàng';
+                    document.getElementById('custPhone').innerText = currentCustomer.SDT || phoneInput;
+                    document.getElementById('custAddress').innerText = currentCustomer.DiaChi || 'Chưa cập nhật';
+                    document.getElementById('custPoints').innerText = Number(currentCustomer.DiemConLai || 0).toLocaleString();
+                    document.getElementById('userPoints').innerText = Number(currentCustomer.DiemConLai || 0).toLocaleString();
+
+                    // Chuyển chế độ hiển thị
+                    document.getElementById('phoneInputSection').classList.add('hidden');
+                    document.getElementById('customerInfoSection').classList.remove('hidden');
+
+                    // Tải danh sách sản phẩm sau khi đã xác thực SĐT đúng
+                    loadProductsFromSheet();
+                } else {
+                    alert(`❌ ${result.message || "Không tìm thấy thông tin khách hàng với SĐT này. Vui lòng kiểm tra lại!"}`);
+                }
+            } catch (err) {
+                alert("❌ Lỗi kết nối đến máy chủ! Vui lòng kiểm tra lại cấu hình Web App URL.");
+            } font-medium {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-magnifying-glass mr-2"></i> Kiểm Tra Điểm`;
+            }
+        }
+
+        // Đổi số điện thoại khác
+        function resetCustomer() {
+            currentCustomer = null;
+            document.getElementById('userPoints').innerText = "0";
+            document.getElementById('inputPhone').value = "";
+            document.getElementById('customerInfoSection').classList.add('hidden');
+            document.getElementById('phoneInputSection').classList.remove('hidden');
+            
+            // Xóa danh sách sản phẩm hiển thị
+            document.getElementById('productGrid').innerHTML = `
+                <div class="col-span-full text-center py-12 text-slate-500">
+                    <i class="fa-solid fa-lock text-3xl mb-2 text-slate-400"></i>
+                    <p class="text-sm">Vui lòng nhập <strong>Số điện thoại</strong> ở trên để xem danh sách sản phẩm đổi thưởng.</p>
+                </div>
+            `;
+            switchTab('list');
+        }
+
+        // 2. TẢI DANH SÁCH SẢN PHẨM TỪ GOOGLE SHEET
         async function loadProductsFromSheet() {
             const grid = document.getElementById('productGrid');
             
-            if (!scriptUrl) {
+            if (!currentCustomer) {
                 grid.innerHTML = `
-                    <div class="col-span-full bg-amber-50 border border-amber-200 text-amber-800 p-6 rounded-xl text-center space-y-3">
-                        <i class="fa-solid fa-plug-circle-exclamation text-3xl text-amber-600"></i>
-                        <p class="text-sm font-semibold">Chưa cài đặt đường link Google Apps Script!</p>
-                        <p class="text-xs text-amber-700">Vui lòng nhấn nút cài đặt <i class="fa-solid fa-gear"></i> ở góc trên bên phải để dán link Web App URL.</p>
-                        <button onclick="toggleConfigModal()" class="bg-amber-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow">Cài đặt ngay</button>
+                    <div class="col-span-full text-center py-12 text-slate-500">
+                        <i class="fa-solid fa-lock text-3xl mb-2 text-slate-400"></i>
+                        <p class="text-sm">Vui lòng nhập <strong>Số điện thoại</strong> ở trên để xem danh sách sản phẩm đổi thưởng.</p>
                     </div>
                 `;
                 return;
@@ -177,7 +279,7 @@
             grid.innerHTML = `
                 <div class="col-span-full text-center py-12 text-slate-500">
                     <i class="fa-solid fa-spinner fa-spin text-3xl mb-2 text-indigo-600"></i>
-                    <p class="text-sm">Đang kết nối & tải dữ liệu sản phẩm từ Google Sheet...</p>
+                    <p class="text-sm">Đang tải dữ liệu sản phẩm...</p>
                 </div>
             `;
 
@@ -185,7 +287,6 @@
                 const response = await fetch(scriptUrl);
                 const result = await response.json();
                 
-                // Đọc đúng mảng dữ liệu từ API JSON { status: "success", data: [...] }
                 if (result && result.data && Array.isArray(result.data)) {
                     products = result.data;
                     renderProducts();
@@ -193,7 +294,7 @@
                     products = result;
                     renderProducts();
                 } else {
-                    grid.innerHTML = `<p class="col-span-full text-center text-red-500 text-sm">Dữ liệu nhận được không hợp lệ!</p>`;
+                    grid.innerHTML = `<p class="col-span-full text-center text-red-500 text-sm">Dữ liệu sản phẩm nhận được không hợp lệ!</p>`;
                 }
             } catch (err) {
                 grid.innerHTML = `
@@ -205,7 +306,7 @@
             }
         }
 
-        // Render danh sách sản phẩm khớp với các cột API
+        // Render danh sách sản phẩm
         function renderProducts() {
             const grid = document.getElementById('productGrid');
             if (products.length === 0) {
@@ -216,7 +317,7 @@
             grid.innerHTML = products.map(p => `
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition flex flex-col justify-between">
                     <div>
-                        <div class="h-48 bg-slate-100 overflow-hidden relative border-b border-slate-100 flex items-center justify-center">
+                        <div class="h-48 bg-slate-50 overflow-hidden relative border-b border-slate-100 flex items-center justify-center p-2">
                             <img src="${p.HinhAnh || 'https://via.placeholder.com/300'}" alt="${p.TenSP}" class="w-full h-full object-contain" onerror="this.src='https://via.placeholder.com/300?text=No+Image'">
                             <span class="absolute top-2 left-2 bg-slate-900/70 text-white text-[10px] px-2 py-0.5 rounded font-medium">${p.MaDVT || 'Đơn vị'}</span>
                         </div>
@@ -264,11 +365,17 @@
             switchTab('detail');
         }
 
-        // Thực hiện đổi quà
+        // 3. THỰC HIỆN ĐỔI QUÀ
         async function redeemProduct() {
+            if (!currentCustomer) {
+                alert("⚠️ Vui lòng xác thực số điện thoại khách hàng trước!");
+                return;
+            }
+
             if (!currentSelectedProduct) return;
 
             const diemDoi = Number(currentSelectedProduct.Diem || 0);
+            const userPoints = Number(currentCustomer.DiemConLai || 0);
 
             if (userPoints < diemDoi) {
                 alert("❌ Bạn không đủ điểm để đổi sản phẩm này!");
@@ -280,21 +387,23 @@
             btnRedeem.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang xử lý...`;
 
             try {
-                // Gửi dữ liệu đổi quà về Google Apps Script
                 await fetch(scriptUrl, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        sdt: currentCustomer.SDT,
                         maSP: currentSelectedProduct.MaSP,
                         diemTru: diemDoi
                     })
                 });
 
-                userPoints -= diemDoi;
-                document.getElementById('userPoints').innerText = userPoints.toLocaleString();
+                // Cập nhật điểm khả dụng cục bộ
+                currentCustomer.DiemConLai = userPoints - diemDoi;
+                document.getElementById('userPoints').innerText = currentCustomer.DiemConLai.toLocaleString();
+                document.getElementById('custPoints').innerText = currentCustomer.DiemConLai.toLocaleString();
 
-                alert(`🎉 Bạn đã đổi thành công: ${currentSelectedProduct.TenSP}`);
+                alert(`🎉 Đổi thành công: ${currentSelectedProduct.TenSP}`);
             } catch (err) {
                 alert("❌ Có lỗi xảy ra khi kết nối hệ thống!");
             } finally {
@@ -339,13 +448,7 @@
             scriptUrl = inputUrl;
             localStorage.setItem('APPS_SCRIPT_URL', scriptUrl);
             toggleConfigModal();
-            loadProductsFromSheet();
         }
-
-        // Khởi tạo
-        window.onload = () => {
-            loadProductsFromSheet();
-        };
     </script>
 </body>
 </html>
