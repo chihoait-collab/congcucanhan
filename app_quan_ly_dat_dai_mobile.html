@@ -7,6 +7,7 @@
   <link rel="icon" href="data:," />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="./opencv.js"></script>
+  <script src="./jscanify.min.js"></script>
   <style>
     :root {
       --primary: #1d4ed8;
@@ -173,7 +174,6 @@
       border-color: #31d0aa;
       border-style: solid;
       border-radius: 5px;
-      box-shadow: 0 0 0 999px rgba(5, 20, 18, .12);
     }
 
     .mini-grid {
@@ -436,12 +436,16 @@
       cccdPhotos: [],
       detectionFrame: 0,
       lastDetectionAt: 0,
-      opencvReady: false
+      opencvReady: false,
+      scanner: null
     };
 
     const opencvReady = Promise.resolve(window.cv).then(module => {
       window.cv = module;
       state.opencvReady = Boolean(module && module.Mat && module.findContours);
+      if (state.opencvReady && typeof window.jscanify === 'function') {
+        state.scanner = new window.jscanify();
+      }
       return state.opencvReady;
     }).catch(error => {
       console.error('Không thể khởi tạo OpenCV.js.', error);
@@ -829,6 +833,9 @@
     function detectDocumentWithOpenCv(sourceCanvas) {
       if (!state.opencvReady) return null;
 
+      const jscanifyBounds = detectDocumentWithJscanify(sourceCanvas);
+      if (jscanifyBounds) return jscanifyBounds;
+
       const cv = window.cv;
       let source;
       let gray;
@@ -911,6 +918,86 @@
       return selected;
     }
 
+    function detectDocumentWithJscanify(sourceCanvas) {
+      if (!state.scanner || !state.opencvReady) return null;
+
+      let source;
+      let contour;
+      try {
+        const cv = window.cv;
+        const scale = Math.min(1, 640 / Math.max(sourceCanvas.width, sourceCanvas.height));
+        const width = Math.max(1, Math.round(sourceCanvas.width * scale));
+        const height = Math.max(1, Math.round(sourceCanvas.height * scale));
+        const probe = document.createElement('canvas');
+        probe.width = width;
+        probe.height = height;
+        probe.getContext('2d').drawImage(sourceCanvas, 0, 0, width, height);
+
+        source = cv.matFromImageData(probe.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, width, height));
+        contour = state.scanner.findPaperContour(source);
+        if (!contour || contour.rows < 4 || Math.abs(cv.contourArea(contour)) < width * height * 0.08) return null;
+
+        const detected = state.scanner.getCornerPoints(contour);
+        const corners = [
+          detected.topLeftCorner,
+          detected.topRightCorner,
+          detected.bottomRightCorner,
+          detected.bottomLeftCorner
+        ];
+        if (corners.some(point => !point || !Number.isFinite(point.x) || !Number.isFinite(point.y))) return null;
+
+        const scaledCorners = corners.map(point => ({ x: point.x / scale, y: point.y / scale }));
+        const topWidth = Math.hypot(scaledCorners[1].x - scaledCorners[0].x, scaledCorners[1].y - scaledCorners[0].y);
+        const bottomWidth = Math.hypot(scaledCorners[2].x - scaledCorners[3].x, scaledCorners[2].y - scaledCorners[3].y);
+        const leftHeight = Math.hypot(scaledCorners[3].x - scaledCorners[0].x, scaledCorners[3].y - scaledCorners[0].y);
+        const rightHeight = Math.hypot(scaledCorners[2].x - scaledCorners[1].x, scaledCorners[2].y - scaledCorners[1].y);
+        const ratio = Math.max(topWidth, bottomWidth) / Math.max(1, Math.max(leftHeight, rightHeight));
+        if (ratio < 0.22 || ratio > 4.5) return null;
+
+        const xs = scaledCorners.map(point => point.x);
+        const ys = scaledCorners.map(point => point.y);
+        const x = Math.max(0, Math.floor(Math.min(...xs)));
+        const y = Math.max(0, Math.floor(Math.min(...ys)));
+        const right = Math.min(sourceCanvas.width, Math.ceil(Math.max(...xs)));
+        const bottom = Math.min(sourceCanvas.height, Math.ceil(Math.max(...ys)));
+        return {
+          x,
+          y,
+          width: right - x,
+          height: bottom - y,
+          corners: scaledCorners,
+          detected: true,
+          method: 'jscanify'
+        };
+      } catch (error) {
+        console.warn('jscanify không nhận diện được giấy tờ trong khung hình.', error);
+        return null;
+      } finally {
+        if (contour && contour.delete) contour.delete();
+        if (source && source.delete) source.delete();
+      }
+    }
+
+    function extractDocumentWithJscanify(sourceCanvas, corners) {
+      const points = {
+        topLeftCorner: corners[0],
+        topRightCorner: corners[1],
+        bottomRightCorner: corners[2],
+        bottomLeftCorner: corners[3]
+      };
+      const width = Math.max(
+        Math.hypot(corners[2].x - corners[3].x, corners[2].y - corners[3].y),
+        Math.hypot(corners[1].x - corners[0].x, corners[1].y - corners[0].y)
+      );
+      const height = Math.max(
+        Math.hypot(corners[1].x - corners[2].x, corners[1].y - corners[2].y),
+        Math.hypot(corners[0].x - corners[3].x, corners[0].y - corners[3].y)
+      );
+      const result = state.scanner.extractPaper(sourceCanvas, Math.round(width), Math.round(height), points);
+      if (!result) throw new Error('jscanify không thể hiệu chỉnh phối cảnh tài liệu.');
+      return result;
+    }
+
     function warpDocumentPerspective(sourceCanvas, corners) {
       const cv = window.cv;
       const [topLeft, topRight, bottomRight, bottomLeft] = corners;
@@ -957,8 +1044,10 @@
       const bounds = detectDocumentBounds(sourceCanvas);
       const cropCanvas = document.createElement('canvas');
       let cropCtx;
-      if (bounds.corners && bounds.method === 'opencv') {
-        const corrected = warpDocumentPerspective(sourceCanvas, bounds.corners);
+      if (bounds.corners && (bounds.method === 'jscanify' || bounds.method === 'opencv')) {
+        const corrected = bounds.method === 'jscanify'
+          ? extractDocumentWithJscanify(sourceCanvas, bounds.corners)
+          : warpDocumentPerspective(sourceCanvas, bounds.corners);
         cropCanvas.width = corrected.width;
         cropCanvas.height = corrected.height;
         cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
@@ -970,7 +1059,7 @@
         cropCtx.drawImage(sourceCanvas, bounds.x, bounds.y, bounds.width, bounds.height, 0, 0, bounds.width, bounds.height);
       }
 
-      const imageData = cropCtx.getImageData(0, 0, bounds.width, bounds.height);
+      const imageData = cropCtx.getImageData(0, 0, cropCanvas.width, cropCanvas.height);
       const data = imageData.data;
       for (let i = 0; i < data.length; i += 4) {
         data[i] = Math.min(255, Math.max(0, (data[i] - 128) * 1.08 + 140));
