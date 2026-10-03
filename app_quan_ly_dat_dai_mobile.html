@@ -17,64 +17,220 @@
       --card: #ffffff;
       --text: #111827;
       --muted: #6b7280;
-      --line: #e5e7eb;
+      --line: #dfe3ea;
     }
+
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--text); }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
     body { min-height: 100vh; }
-    .app { max-width: 920px; margin: 0 auto; padding: 16px; }
+
+    .app {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
     .topbar {
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      padding: 16px 18px; border-radius: 18px; margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      margin-bottom: 16px;
       background: linear-gradient(135deg, var(--primary-dark), var(--primary));
       color: white;
+      box-shadow: 0 8px 18px rgba(30, 58, 138, 0.18);
     }
-    .brand { font-size: 1.1rem; font-weight: 700; }
+
+    .brand { font-weight: 700; font-size: 1.08rem; }
+
     .badge {
-      padding: 8px 12px; border-radius: 999px; font-size: 12px;
-      background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: rgba(255,255,255,.14);
+      border: 1px solid rgba(255,255,255,.25);
+      white-space: nowrap;
     }
+
     .layout { display: grid; gap: 16px; }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 8px 18px rgba(15,23,42,.06); }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+    }
+
     .section { padding: 16px; }
-    .section h3 { margin: 0 0 12px; font-size: 15px; }
+
+    .section h3 { margin: 0 0 14px; font-size: 15px; }
+
     .field { display: grid; gap: 6px; }
-    .field label { font-size: 12px; color: var(--muted); font-weight: 700; }
-    .field input, .field textarea {
-      width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: white; font-size: 14px;
+
+    .field label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
     }
+
+    .field input,
+    .field textarea,
+    .field select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: white;
+      padding: 10px 12px;
+      font-size: 14px;
+      color: var(--text);
+    }
+
     .field textarea { min-height: 88px; resize: vertical; }
-    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
-    .row { display: grid; gap: 12px; }
-    .footer-actions { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
-    button {
-      border: none; border-radius: 12px; padding: 12px 14px; font-size: 14px; font-weight: 700; cursor: pointer;
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
     }
-    button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .row {
+      display: grid;
+      gap: 12px;
+    }
+
+    .footer-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover:not(:disabled) { transform: translateY(-1px); }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
     .primary { background: var(--primary); color: white; }
     .secondary { background: #e5e7eb; color: #111827; }
     .success { background: var(--success); color: white; }
     .warning { background: #fef3c7; color: #92400e; }
-    .danger { background: #fef2f2; color: #991b1b; }
+
     .camera-shell {
-      position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: #0f172a;
-      aspect-ratio: 4/3;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #0f172a;
+      aspect-ratio: 4 / 3;
     }
-    .camera-shell video { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+    .camera-shell video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #111827;
+    }
+
     .camera-shell canvas { display: none; }
+
     .overlay {
-      position: absolute; inset: 18px; border: 2px dashed rgba(255,255,255,.75); border-radius: 18px; pointer-events: none;
+      position: absolute;
+      inset: 18px;
+      border: 2px dashed rgba(255,255,255,.8);
+      border-radius: 18px;
+      pointer-events: none;
     }
-    .mini-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
-    .helper { font-size: 12px; color: var(--muted); }
-    .thumb-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; margin-top: 8px; }
-    .thumb { background: #f8fafc; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-    .thumb img { display: block; width: 100%; height: 100px; object-fit: cover; }
-    .thumb-name { padding: 6px 8px; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .search-result { display: none; border: 1px solid var(--line); background: #f8fafc; border-radius: 12px; padding: 10px; margin-top: 12px; }
-    .result-row { display: flex; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 10px;
+    }
+
+    .helper {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .thumb-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .thumb {
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .thumb img {
+      display: block;
+      width: 100%;
+      height: 96px;
+      object-fit: cover;
+    }
+
+    .thumb-name {
+      padding: 6px 8px;
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .search-result {
+      display: none;
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 10px;
+      margin-top: 12px;
+    }
+
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
     .result-row:last-child { border-bottom: none; }
+
+    .result-meta {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
     .mt-8 { margin-top: 8px; }
+
     @media (max-width: 640px) {
       .app { padding: 12px; }
       .grid-2, .footer-actions, .mini-grid { grid-template-columns: 1fr; }
@@ -105,7 +261,7 @@
         <h3>2) Tìm kiếm dữ liệu</h3>
         <div class="field">
           <label>Từ khóa</label>
-          <input id="searchQuery" type="text" placeholder="Tên, CCCD, thửa, tờ bản đồ..." />
+          <input id="searchQuery" type="text" placeholder="Tên, CCCD, thửa, tờ bản đồ, xã..." />
         </div>
         <div id="searchResults" class="search-result"></div>
       </div>
@@ -117,75 +273,127 @@
           <canvas id="scanCanvas"></canvas>
           <div class="overlay"></div>
         </div>
+
         <div class="footer-actions mt-8">
           <button class="primary" id="btnStartCamera" type="button" onclick="startCamera()">Bật camera</button>
-          <button class="secondary" id="btnCapturePage" type="button" onclick="capturePage('document')" disabled>Chụp trang tài liệu</button>
+          <button class="secondary" id="btnCapturePage" type="button" onclick="capturePage('document')" disabled>Chụp trang giấy tờ</button>
         </div>
+
         <div class="footer-actions mt-8">
-          <button class="warning" id="btnCaptureFront" type="button" onclick="capturePage('cccd-front')" disabled>Chụp CCCD Mặt Trước</button>
-          <button class="warning" id="btnCaptureBack" type="button" onclick="capturePage('cccd-back')" disabled>Chụp CCCD Mặt Sau</button>
+          <button class="warning" id="btnCaptureFront" type="button" onclick="capturePage('cccd-front')" disabled>Chụp CCCD mặt trước</button>
+          <button class="warning" id="btnCaptureBack" type="button" onclick="capturePage('cccd-back')" disabled>Chụp CCCD mặt sau</button>
         </div>
 
         <div class="mini-grid mt-8">
           <div>
-            <div class="helper">Trang tài liệu đã chụp</div>
+            <div class="helper">Số trang giấy tờ</div>
             <div id="docPageCount" class="helper" style="font-size:24px;font-weight:700;color:#111827;">0</div>
           </div>
           <div>
-            <div class="helper">CCCD đã chụp</div>
+            <div class="helper">Số CCCD đã chụp</div>
             <div id="cccdPageCount" class="helper" style="font-size:24px;font-weight:700;color:#111827;">0</div>
           </div>
         </div>
 
         <div class="mt-8">
-          <div class="helper">Xem trước ảnh đã quét</div>
+          <div class="helper">Xem trước ảnh đã scan</div>
           <div id="thumbList" class="thumb-list"></div>
         </div>
       </div>
 
       <div class="card section">
-        <h3>4) Thông tin hồ sơ</h3>
+        <h3>4) Thông tin hồ sơ đất đai</h3>
         <div class="row">
-          <div class="field">
-            <label>Họ và tên chủ sử dụng</label>
-            <input id="hoTenCSD" type="text" placeholder="Nhập họ tên" />
-          </div>
-          <div class="field">
-            <label>Số CCCD / CMND</label>
-            <input id="soCCCD" type="text" placeholder="Số CCCD" />
-          </div>
-          <div class="grid-2">
-            <div class="field">
-              <label>Số thửa đất</label>
-              <input id="soThua" type="text" placeholder="Thửa số" />
-            </div>
-            <div class="field">
-              <label>Số tờ bản đồ</label>
-              <input id="soTo" type="text" placeholder="Tờ số" />
-            </div>
-          </div>
-          <div class="field">
-            <label>Địa chỉ</label>
-            <input id="diaChi" type="text" placeholder="Địa chỉ lô đất" />
-          </div>
           <div class="grid-2">
             <div class="field">
               <label>Tên huyện</label>
-              <input id="tenHuyen" type="text" placeholder="Huyện" />
+              <input id="tenHuyen" type="text" placeholder="Tên huyện" />
             </div>
             <div class="field">
-              <label>Tên xã</label>
-              <input id="tenXa" type="text" placeholder="Xã" />
+              <label>Tên xã cũ</label>
+              <input id="tenXaCu" type="text" placeholder="Tên xã cũ" />
             </div>
           </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label>Tên xã mới</label>
+              <input id="tenXaMoi" type="text" placeholder="Tên xã mới" />
+            </div>
+            <div class="field">
+              <label>Họ và tên CSD</label>
+              <input id="hoTenCSD" type="text" placeholder="Họ và tên" />
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label>Số hiệu tờ bản đồ mới</label>
+              <input id="soHieuToBanDoMoi" type="text" placeholder="Số hiệu tờ bản đồ mới" />
+            </div>
+            <div class="field">
+              <label>Số thứ tự thửa mới</label>
+              <input id="soThuTuThuaMoi" type="text" placeholder="Số thứ tự thửa mới" />
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label>Diện tích</label>
+              <input id="dienTich" type="text" placeholder="Diện tích" />
+            </div>
+            <div class="field">
+              <label>Loại mục đích sử dụng</label>
+              <input id="loaiMucDichSuDung" type="text" placeholder="Mục đích sử dụng" />
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label>Số hiệu tờ bản đồ cũ</label>
+              <input id="soHieuToBanDoCu" type="text" placeholder="Số hiệu tờ bản đồ cũ" />
+            </div>
+            <div class="field">
+              <label>Số thứ tự thửa cũ</label>
+              <input id="soThuTuThuaCu" type="text" placeholder="Số thứ tự thửa cũ" />
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label>Ấp</label>
+              <input id="ap" type="text" placeholder="Ấp" />
+            </div>
+            <div class="field">
+              <label>Thế chấp</label>
+              <input id="theChap" type="text" placeholder="Có/Không" />
+            </div>
+          </div>
+
           <div class="field">
-            <label>Ghi chú / OCR text</label>
-            <textarea id="ocrText" placeholder="Nội dung OCR / ghi chú..."></textarea>
+            <label>Link File GCN</label>
+            <input id="fileGCN" type="text" placeholder="https://drive.google.com/... hoặc tên file" />
+          </div>
+
+          <div class="field">
+            <label>Link File CCCD</label>
+            <input id="fileCCCD" type="text" placeholder="https://drive.google.com/... hoặc tên file" />
+          </div>
+
+          <div class="field">
+            <label>Số CCCD</label>
+            <input id="soCCCD" type="text" placeholder="Số CCCD" />
+          </div>
+
+          <div class="field">
+            <label>Ghi chú / OCR</label>
+            <textarea id="ocrText" placeholder="Nội dung OCR, ghi chú hoặc thông tin bổ sung..."></textarea>
           </div>
         </div>
+
         <div class="footer-actions mt-8">
           <button class="secondary" type="button" onclick="clearForm()">Xóa form</button>
-          <button class="success" type="button" onclick="saveCurrentRecord()">Lưu PDF + Drive + Sheet</button>
+          <button class="success" type="button" onclick="saveCurrentRecord()">Lưu PDF vào Drive + Sheet</button>
         </div>
       </div>
     </div>
@@ -201,6 +409,7 @@
     function setStatus(message, tone = 'normal') {
       const badge = document.getElementById('statusBadge');
       if (!badge) return;
+
       badge.textContent = message;
       badge.style.background = tone === 'error' ? '#fee2e2' : tone === 'success' ? '#dcfce7' : 'rgba(255,255,255,.14)';
       badge.style.color = tone === 'error' ? '#991b1b' : tone === 'success' ? '#166534' : '#ffffff';
@@ -211,26 +420,34 @@
       return document.getElementById('webAppUrl').value.trim();
     }
 
-    async function testApiConnection() {
+    function safeJsonParse(text) {
+      try { return JSON.parse(text); } catch (e) { return null; }
+    }
+
+    async function apiRequest(action, payload) {
       const url = getApiUrl();
-      if (!url) {
-        alert('Vui lòng nhập Web App URL.');
-        return;
+      if (!url) throw new Error('Vui lòng nhập Web App URL trước khi thao tác.');
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, payload })
+      });
+
+      const raw = await response.text();
+      const data = safeJsonParse(raw) || {};
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || `Request ${action} thất bại.`);
       }
 
+      return data;
+    }
+
+    async function testApiConnection() {
       try {
         setStatus('Đang kiểm tra API...', 'normal');
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'PING', payload: {} })
-        });
-        const raw = await response.text();
-        let data = {};
-        try { data = JSON.parse(raw); } catch (e) {}
-        if (!response.ok || data.success === false) {
-          throw new Error(data.error || 'API không phản hồi đúng định dạng');
-        }
+        const data = await apiRequest('PING', {});
         alert('API hoạt động tốt: ' + (data.message || 'OK'));
         setStatus('API OK', 'success');
       } catch (error) {
@@ -240,22 +457,10 @@
     }
 
     async function searchRecords() {
-      const url = getApiUrl();
       const query = document.getElementById('searchQuery').value.trim();
-      if (!url) {
-        alert('Vui lòng nhập URL trước khi tìm kiếm.');
-        return;
-      }
-
       try {
         setStatus('Đang tìm kiếm...', 'normal');
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'SEARCH', payload: { query, limit: 20 } })
-        });
-        const data = await response.json();
-        if (!data.success) throw new Error(data.error || 'Không đọc được kết quả');
+        const data = await apiRequest('SEARCH', { query, limit: 20 });
         renderSearchResults(data.data || []);
         setStatus(data.data && data.data.length ? 'Tìm thấy dữ liệu' : 'Không có dữ liệu', data.data && data.data.length ? 'success' : 'normal');
       } catch (error) {
@@ -267,31 +472,56 @@
     function renderSearchResults(items) {
       const box = document.getElementById('searchResults');
       box.style.display = 'block';
+
       if (!items.length) {
-        box.innerHTML = '<div class="helper">Không tìm thấy kết quả nào.</div>';
+        box.innerHTML = '<div class="helper">Không tìm thấy hồ sơ nào phù hợp.</div>';
         return;
       }
 
-      box.innerHTML = items.map(item => `
-        <div class="result-row">
-          <div>
-            <strong>${escapeHtml(item.hoTenCSD || item.hoTen || '---')}</strong><br>
-            <span class="helper">CCCD: ${escapeHtml(item.soCCCD || '---')} | Thửa: ${escapeHtml(item.soThua || '---')} | Tờ: ${escapeHtml(item.soTo || '---')}</span>
+      box.innerHTML = items.map(item => {
+        const name = item['Họ Tên CSD'] || item.hoTenCSD || item.hoTen || '---';
+        const cccd = item['Số CCCD'] || item.soCCCD || '---';
+        const thua = item['Số thứ tự thửa mới'] || item.soThuTuThuaMoi || item.soThuTuThuaCu || '---';
+        const toSo = item['Số hiệu tờ bản đồ mới'] || item.soHieuToBanDoMoi || item.soHieuToBanDoCu || '---';
+        const xa = item['Tên xã mới'] || item.tenXaMoi || item['Tên xã cũ'] || item.tenXaCu || '---';
+
+        return `
+          <div class="result-row">
+            <div>
+              <strong>${escapeHtml(name)}</strong><br>
+              <span class="result-meta">CCCD: ${escapeHtml(cccd)} | Tờ: ${escapeHtml(toSo)} | Thửa: ${escapeHtml(thua)} | Xã: ${escapeHtml(xa)}</span>
+            </div>
+            <button class="secondary" type="button" onclick='fillFormFromResult(${JSON.stringify(item)})'>Chọn</button>
           </div>
-          <button class="secondary" type="button" onclick='fillFormFromResult(${JSON.stringify(item)})'>Chọn</button>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     function fillFormFromResult(item) {
-      document.getElementById('hoTenCSD').value = item.hoTenCSD || item.hoTen || '';
-      document.getElementById('soCCCD').value = item.soCCCD || '';
-      document.getElementById('soThua').value = item.soThua || item.soThuaMoi || '';
-      document.getElementById('soTo').value = item.soTo || item.soToMoi || '';
-      document.getElementById('diaChi').value = item.diaChi || '';
-      document.getElementById('tenHuyen').value = item.tenHuyen || '';
-      document.getElementById('tenXa').value = item.tenXa || '';
-      document.getElementById('ocrText').value = item.ocrText || '';
+      const values = {
+        tenHuyen: item['Tên huyện'] || item.tenHuyen || '',
+        tenXaCu: item['Tên xã cũ'] || item.tenXaCu || '',
+        tenXaMoi: item['Tên xã mới'] || item.tenXaMoi || '',
+        hoTenCSD: item['Họ Tên CSD'] || item.hoTenCSD || item.hoTen || '',
+        soHieuToBanDoMoi: item['Số hiệu tờ bản đồ mới'] || item.soHieuToBanDoMoi || '',
+        soThuTuThuaMoi: item['Số thứ tự thửa mới'] || item.soThuTuThuaMoi || '',
+        dienTich: item['Diện tích'] || item.dienTich || '',
+        loaiMucDichSuDung: item['Loại mục đích sử dụng'] || item.loaiMucDichSuDung || '',
+        soHieuToBanDoCu: item['Số hiệu tờ bản đồ cũ'] || item.soHieuToBanDoCu || '',
+        soThuTuThuaCu: item['Số thứ tự thửa cũ'] || item.soThuTuThuaCu || '',
+        ap: item['Ấp'] || item.ap || '',
+        theChap: item['Thế chấp'] || item.theChap || '',
+        fileGCN: item['File GCN'] || item.fileGCN || '',
+        fileCCCD: item['File CCCD'] || item.fileCCCD || '',
+        soCCCD: item['Số CCCD'] || item.soCCCD || '',
+        ocrText: item.ocrText || ''
+      };
+
+      Object.entries(values).forEach(([key, value]) => {
+        const node = document.getElementById(key);
+        if (node) node.value = value;
+      });
+
       alert('Đã tải dữ liệu hồ sơ lên form.');
     }
 
@@ -306,13 +536,16 @@
           video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
           audio: false
         });
+
         state.stream = stream;
         const video = document.getElementById('video');
         video.srcObject = stream;
         await video.play();
+
         document.getElementById('btnCapturePage').disabled = false;
         document.getElementById('btnCaptureFront').disabled = false;
         document.getElementById('btnCaptureBack').disabled = false;
+
         setStatus('Camera sẵn sàng', 'success');
       } catch (error) {
         alert('Không thể mở camera: ' + error.message);
@@ -327,17 +560,15 @@
         return;
       }
 
-      const width = video.videoWidth || 1280;
-      const height = video.videoHeight || 720;
       const canvas = document.getElementById('scanCanvas');
-      canvas.width = width;
-      canvas.height = height;
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, width, height);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
       const processed = prepareScan(canvas, { targetWidth: 1200, targetHeight: 1600 });
-      const thumb = document.createElement('img');
-      thumb.src = processed.toDataURL('image/jpeg', 0.92);
+      const imageData = processed.toDataURL('image/jpeg', 0.92);
 
       if (type === 'document') {
         state.documentPages.push(processed);
@@ -346,11 +577,12 @@
         state.cccdPhotos.push({ type, canvas: processed });
       }
 
-      const label = type === 'document' ? `Trang ${state.documentPages.length}` : (type === 'cccd-front' ? 'CCCD MẶT TRƯỚC' : 'CCCD MẶT SAU');
+      const label = type === 'document' ? `Trang ${state.documentPages.length}` : (type === 'cccd-front' ? 'CCCD mặt trước' : 'CCCD mặt sau');
       const holder = document.createElement('div');
       holder.className = 'thumb';
-      holder.innerHTML = `<img src="${thumb.src}" alt="${label}" /><div class="thumb-name">${label}</div>`;
+      holder.innerHTML = `<img src="${imageData}" alt="${label}" /><div class="thumb-name">${label}</div>`;
       document.getElementById('thumbList').prepend(holder);
+
       updateCccdCount();
       setStatus('Đã chụp ảnh', 'success');
     }
@@ -360,55 +592,68 @@
     }
 
     function prepareScan(sourceCanvas, opts) {
-      const w = sourceCanvas.width;
-      const h = sourceCanvas.height;
-      const crop = document.createElement('canvas');
-      const cropCtx = crop.getContext('2d');
-      const pad = 0.12;
-      const cropX = Math.max(0, Math.floor(w * pad));
-      const cropY = Math.max(0, Math.floor(h * pad));
-      const cropW = Math.max(100, Math.floor(w * (1 - pad * 2)));
-      const cropH = Math.max(100, Math.floor(h * (1 - pad * 2)));
+      const sourceW = sourceCanvas.width;
+      const sourceH = sourceCanvas.height;
+      const margin = 0.12;
+      const cropX = Math.max(0, Math.floor(sourceW * margin));
+      const cropY = Math.max(0, Math.floor(sourceH * margin));
+      const cropW = Math.max(100, Math.floor(sourceW * (1 - margin * 2)));
+      const cropH = Math.max(100, Math.floor(sourceH * (1 - margin * 2)));
 
-      crop.width = cropW;
-      crop.height = cropH;
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = cropW;
+      cropCanvas.height = cropH;
+      const cropCtx = cropCanvas.getContext('2d');
       cropCtx.drawImage(sourceCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
 
-      const img = cropCtx.getImageData(0, 0, cropW, cropH);
-      const data = img.data;
-      const out = new Uint8ClampedArray(data.length);
+      const imageData = cropCtx.getImageData(0, 0, cropW, cropH);
+      const data = imageData.data;
+      const enhanced = new Uint8ClampedArray(data.length);
+
       for (let i = 0; i < data.length; i += 4) {
-        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
         const brightness = (r * 0.299 + g * 0.587 + b * 0.114);
-        const adjusted = Math.min(255, Math.max(0, (brightness - 128) * 1.8 + 128));
-        const finalValue = adjusted > 180 ? 255 : adjusted;
-        out[i] = finalValue;
-        out[i + 1] = finalValue;
-        out[i + 2] = finalValue;
-        out[i + 3] = 255;
+        const contrast = (brightness - 128) * 1.7 + 128;
+        const adjusted = Math.min(255, Math.max(0, contrast));
+        const finalValue = adjusted < 180 ? adjusted + 35 : adjusted;
+
+        enhanced[i] = finalValue;
+        enhanced[i + 1] = finalValue;
+        enhanced[i + 2] = finalValue;
+        enhanced[i + 3] = 255;
       }
 
       const grayCanvas = document.createElement('canvas');
       grayCanvas.width = cropW;
       grayCanvas.height = cropH;
       const grayCtx = grayCanvas.getContext('2d');
-      grayCtx.putImageData(new ImageData(out, cropW, cropH), 0, 0);
+      grayCtx.putImageData(new ImageData(enhanced, cropW, cropH), 0, 0);
 
       const target = document.createElement('canvas');
       const targetW = opts.targetWidth || cropW;
       const targetH = opts.targetHeight || cropH;
       target.width = targetW;
       target.height = targetH;
+
       const tctx = target.getContext('2d');
-      tctx.fillStyle = '#fff';
+      tctx.fillStyle = '#ffffff';
       tctx.fillRect(0, 0, targetW, targetH);
       tctx.drawImage(grayCanvas, 0, 0, cropW, cropH, 0, 0, targetW, targetH);
+
       return target;
     }
 
     function buildPdfFromScans() {
-      const pages = [...state.documentPages, ...state.cccdPhotos.map(item => item.canvas)];
-      if (!pages.length) throw new Error('Bạn chưa chụp tài liệu hoặc CCCD nào.');
+      const pages = [
+        ...state.documentPages,
+        ...state.cccdPhotos.map(item => item.canvas)
+      ];
+
+      if (!pages.length) {
+        throw new Error('Bạn chưa chụp tài liệu hoặc CCCD nào.');
+      }
 
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -417,62 +662,60 @@
 
       pages.forEach((pageCanvas, index) => {
         if (index > 0) pdf.addPage();
+
         const imgData = pageCanvas.toDataURL('image/jpeg', 0.92);
         const ratio = Math.min(pageWidth / pageCanvas.width, pageHeight / pageCanvas.height);
         const w = pageCanvas.width * ratio;
         const h = pageCanvas.height * ratio;
         const x = (pageWidth - w) / 2;
         const y = (pageHeight - h) / 2;
+
         pdf.addImage(imgData, 'JPEG', x, y, w, h, undefined, 'FAST');
       });
+
       return pdf.output('datauristring');
     }
 
     async function saveCurrentRecord() {
-      const url = getApiUrl();
-      if (!url) {
-        alert('Vui lòng nhập URL.');
-        return;
-      }
       if (!state.documentPages.length && !state.cccdPhotos.length) {
-        alert('Bạn cần chụp ít nhất 1 trang tài liệu hoặc CCCD.');
+        alert('Bạn cần chụp ít nhất 1 trang tài liệu hoặc CCCD trước khi lưu.');
         return;
       }
 
       try {
         setStatus('Đang tạo PDF...', 'normal');
-        const pdfDataUrl = buildPdfFromScans();
+
         const payload = {
-          action: 'SAVE_SCAN',
-          payload: {
-            fileName: `Ho_So_Dat_Dai_${Date.now()}.pdf`,
-            hoTenCSD: document.getElementById('hoTenCSD').value.trim(),
-            soCCCD: document.getElementById('soCCCD').value.trim(),
-            soThua: document.getElementById('soThua').value.trim(),
-            soTo: document.getElementById('soTo').value.trim(),
-            diaChi: document.getElementById('diaChi').value.trim(),
-            tenHuyen: document.getElementById('tenHuyen').value.trim(),
-            tenXa: document.getElementById('tenXa').value.trim(),
-            ocrText: document.getElementById('ocrText').value.trim(),
-            pdfBase64: pdfDataUrl,
-            pageCount: state.documentPages.length + state.cccdPhotos.length,
-            createdAt: new Date().toISOString()
-          }
+          tenHuyen: document.getElementById('tenHuyen').value.trim(),
+          tenXaCu: document.getElementById('tenXaCu').value.trim(),
+          tenXaMoi: document.getElementById('tenXaMoi').value.trim(),
+          hoTenCSD: document.getElementById('hoTenCSD').value.trim(),
+          soHieuToBanDoMoi: document.getElementById('soHieuToBanDoMoi').value.trim(),
+          soThuTuThuaMoi: document.getElementById('soThuTuThuaMoi').value.trim(),
+          dienTich: document.getElementById('dienTich').value.trim(),
+          loaiMucDichSuDung: document.getElementById('loaiMucDichSuDung').value.trim(),
+          soHieuToBanDoCu: document.getElementById('soHieuToBanDoCu').value.trim(),
+          soThuTuThuaCu: document.getElementById('soThuTuThuaCu').value.trim(),
+          ap: document.getElementById('ap').value.trim(),
+          theChap: document.getElementById('theChap').value.trim(),
+          fileGCN: document.getElementById('fileGCN').value.trim(),
+          fileCCCD: document.getElementById('fileCCCD').value.trim(),
+          soCCCD: document.getElementById('soCCCD').value.trim(),
+          ocrText: document.getElementById('ocrText').value.trim(),
+          pageCount: state.documentPages.length + state.cccdPhotos.length,
+          createdAt: new Date().toISOString(),
+          fileName: `Ho_So_Dat_Dai_${Date.now()}.pdf`,
+          pdfBase64: buildPdfFromScans()
         };
 
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const result = await response.json();
-        if (!result.success) throw new Error(result.error || 'Lưu không thành công');
+        const result = await apiRequest('SAVE_SCAN', payload);
 
         if (result.fileId) {
-          alert('Lưu thành công! File PDF đã lưu vào Drive. File ID: ' + result.fileId);
+          alert('Lưu thành công! File PDF đã được lưu vào Drive.\nFile ID: ' + result.fileId);
         } else {
-          alert('Lưu thông tin vào Google Sheet thành công.');
+          alert('Lưu thông tin lên Google Sheet thành công.');
         }
+
         setStatus('Lưu thành công', 'success');
       } catch (error) {
         alert('Lỗi khi lưu PDF: ' + error.message);
@@ -481,20 +724,22 @@
     }
 
     function clearForm() {
-      ['hoTenCSD','soCCCD','soThua','soTo','diaChi','tenHuyen','tenXa','ocrText'].forEach(id => {
-        document.getElementById(id).value = '';
-      });
+      ['tenHuyen','tenXaCu','tenXaMoi','hoTenCSD','soHieuToBanDoMoi','soThuTuThuaMoi','dienTich','loaiMucDichSuDung','soHieuToBanDoCu','soThuTuThuaCu','ap','theChap','fileGCN','fileCCCD','soCCCD','ocrText']
+        .forEach(id => { const node = document.getElementById(id); if (node) node.value = ''; });
+
       state.documentPages = [];
       state.cccdPhotos = [];
       document.getElementById('docPageCount').textContent = '0';
       document.getElementById('cccdPageCount').textContent = '0';
       document.getElementById('thumbList').innerHTML = '';
       document.getElementById('searchResults').style.display = 'none';
+
       setStatus('Đã xóa form', 'normal');
     }
 
     function escapeHtml(value) {
-      return String(value ?? '')
+      const safeValue = value === undefined || value === null ? '' : value;
+      return String(safeValue)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
