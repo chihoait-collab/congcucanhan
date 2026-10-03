@@ -264,6 +264,8 @@
 
     .camera-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
 
+    .camera-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+
     .search-result {
       display: none;
       border: 1px solid var(--line);
@@ -295,6 +297,7 @@
     @media (max-width: 640px) {
       .app { padding: 12px; }
       .grid-2, .footer-actions, .mini-grid { grid-template-columns: 1fr; }
+      .camera-actions { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -372,9 +375,10 @@
           <div class="helper">Chế độ “Tất cả” chạy nhiều bộ nhận diện hơn nên có thể xử lý lâu hơn.</div>
         </div>
 
-        <div class="footer-actions mt-8">
+        <div class="camera-actions mt-8">
           <button class="primary" id="btnStartCamera" type="button" onclick="startCamera()">Bật camera</button>
           <button class="secondary" id="btnCapturePage" type="button" onclick="capturePage('document')" disabled>Chụp trang giấy tờ</button>
+          <button class="delete-scan" id="btnStopCamera" type="button" onclick="stopCamera()" disabled>Tắt camera</button>
         </div>
 
         <div class="footer-actions mt-8">
@@ -671,7 +675,10 @@
         alert('Thiết bị này không hỗ trợ camera.');
         return;
       }
+      if (state.stream) return;
 
+      const startButton = document.getElementById('btnStartCamera');
+      startButton.disabled = true;
       try {
         setStatus('Đang nạp OpenCV...', 'normal');
         const openCvLoaded = await opencvReady;
@@ -736,13 +743,49 @@
         document.getElementById('btnCapturePage').disabled = false;
         document.getElementById('btnCaptureFront').disabled = false;
         document.getElementById('btnCaptureBack').disabled = false;
+        document.getElementById('btnStopCamera').disabled = false;
 
         scanCameraPreview();
         setStatus('Camera + OpenCV sẵn sàng', 'success');
       } catch (error) {
+        if (state.stream) {
+          state.stream.getTracks().forEach(track => track.stop());
+          state.stream = null;
+        }
+        startButton.disabled = false;
         alert('Không thể mở camera: ' + error.message);
         setStatus('Camera lỗi', 'error');
       }
+    }
+
+    function stopCamera() {
+      if (state.detectionFrame) {
+        cancelAnimationFrame(state.detectionFrame);
+        state.detectionFrame = 0;
+      }
+      if (state.stream) {
+        state.stream.getTracks().forEach(track => track.stop());
+        state.stream = null;
+      }
+
+      const video = document.getElementById('video');
+      if (video) {
+        video.pause();
+        video.srcObject = null;
+      }
+      document.getElementById('btnCapturePage').disabled = true;
+      document.getElementById('btnCaptureFront').disabled = true;
+      document.getElementById('btnCaptureBack').disabled = true;
+      document.getElementById('btnStopCamera').disabled = true;
+      document.getElementById('btnStartCamera').disabled = false;
+
+      const overlay = document.querySelector('.overlay');
+      overlay.classList.remove('detected');
+      overlay.style.left = '9%';
+      overlay.style.top = '9%';
+      overlay.style.width = '82%';
+      overlay.style.height = '82%';
+      setStatus('Camera đã tắt, thiết bị được nghỉ', 'normal');
     }
 
     async function refreshCameras(activeDeviceId) {
@@ -1225,7 +1268,10 @@
       const boxH = bottom - top + 1;
       const valid = left < right && top < bottom &&
         boxW >= probeW * 0.25 && boxH >= probeH * 0.25 &&
-        boxW * boxH >= probeW * probeH * 0.1;
+        boxW * boxH >= probeW * probeH * 0.1 &&
+        boxW * boxH <= probeW * probeH * 0.9 &&
+        left > probeW * 0.005 && top > probeH * 0.005 &&
+        right < probeW * 0.995 && bottom < probeH * 0.995;
 
       if (!valid) {
         const marginX = Math.round(sourceW * 0.03);
@@ -1286,54 +1332,10 @@
         source = cv.matFromImageData(probeContext.getImageData(0, 0, width, height));
         gray = new cv.Mat();
         blurred = new cv.Mat();
-        edges = new cv.Mat();
-        dilated = new cv.Mat();
         kernel = cv.Mat.ones(3, 3, cv.CV_8U);
-        contours = new cv.MatVector();
-        hierarchy = new cv.Mat();
-
         cv.cvtColor(source, gray, cv.COLOR_RGBA2GRAY);
         cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-        cv.Canny(blurred, edges, 45, 135);
-        cv.dilate(edges, dilated, kernel);
-        cv.findContours(dilated, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-
-        let largestArea = width * height * 0.08;
-        for (let index = 0; index < contours.size(); index++) {
-          const contour = contours.get(index);
-          const polygon = new cv.Mat();
-          try {
-            const perimeter = cv.arcLength(contour, true);
-            cv.approxPolyDP(contour, polygon, 0.02 * perimeter, true);
-            const area = Math.abs(cv.contourArea(polygon));
-            if (polygon.rows !== 4 || area <= largestArea || area >= width * height * 0.98 || !cv.isContourConvex(polygon)) continue;
-
-            const points = [];
-            for (let pointIndex = 0; pointIndex < 4; pointIndex++) {
-              points.push({ x: polygon.data32S[pointIndex * 2] / scale, y: polygon.data32S[pointIndex * 2 + 1] / scale });
-            }
-
-            const corners = orderDocumentCorners(points);
-            const topWidth = Math.hypot(corners[1].x - corners[0].x, corners[1].y - corners[0].y);
-            const bottomWidth = Math.hypot(corners[2].x - corners[3].x, corners[2].y - corners[3].y);
-            const leftHeight = Math.hypot(corners[3].x - corners[0].x, corners[3].y - corners[0].y);
-            const rightHeight = Math.hypot(corners[2].x - corners[1].x, corners[2].y - corners[1].y);
-            const ratio = Math.max(topWidth, bottomWidth) / Math.max(1, Math.max(leftHeight, rightHeight));
-            if (ratio < 0.22 || ratio > 4.5) continue;
-
-            largestArea = area;
-            const xs = corners.map(point => point.x);
-            const ys = corners.map(point => point.y);
-            const x = Math.max(0, Math.floor(Math.min(...xs)));
-            const y = Math.max(0, Math.floor(Math.min(...ys)));
-            const right = Math.min(sourceCanvas.width, Math.ceil(Math.max(...xs)));
-            const bottom = Math.min(sourceCanvas.height, Math.ceil(Math.max(...ys)));
-            selected = { x, y, width: right - x, height: bottom - y, corners, detected: true, method: 'opencv' };
-          } finally {
-            contour.delete();
-            polygon.delete();
-          }
-        }
+        selected = findOpenCvDocumentContour(cv, blurred, width, height, sourceCanvas, scale, kernel);
       } catch (error) {
         console.warn('OpenCV không nhận diện được khung tài liệu ở khung hình này.', error);
       } finally {
@@ -1343,6 +1345,79 @@
       }
 
       return selected;
+    }
+
+    function findOpenCvDocumentContour(cv, blurred, width, height, sourceCanvas, scale, kernel) {
+      let best = null;
+      const edgeThresholds = [[35, 105], [50, 150], [65, 195], [80, 220]];
+
+      for (const [lowThreshold, highThreshold] of edgeThresholds) {
+        const edges = new cv.Mat();
+        const dilated = new cv.Mat();
+        const contours = new cv.MatVector();
+        const hierarchy = new cv.Mat();
+        try {
+          cv.Canny(blurred, edges, lowThreshold, highThreshold);
+          cv.dilate(edges, dilated, kernel);
+          cv.findContours(dilated, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+          let largestArea = width * height * 0.045;
+          for (let index = 0; index < contours.size(); index++) {
+            const contour = contours.get(index);
+            const polygon = new cv.Mat();
+            try {
+              const perimeter = cv.arcLength(contour, true);
+              cv.approxPolyDP(contour, polygon, 0.02 * perimeter, true);
+              const area = Math.abs(cv.contourArea(polygon));
+              if (polygon.rows !== 4 || area <= largestArea || area >= width * height * 0.94 || !cv.isContourConvex(polygon)) continue;
+
+              const points = [];
+              for (let pointIndex = 0; pointIndex < 4; pointIndex++) {
+                points.push({ x: polygon.data32S[pointIndex * 2], y: polygon.data32S[pointIndex * 2 + 1] });
+              }
+              const corners = orderDocumentCorners(points);
+              const topWidth = Math.hypot(corners[1].x - corners[0].x, corners[1].y - corners[0].y);
+              const bottomWidth = Math.hypot(corners[2].x - corners[3].x, corners[2].y - corners[3].y);
+              const leftHeight = Math.hypot(corners[3].x - corners[0].x, corners[3].y - corners[0].y);
+              const rightHeight = Math.hypot(corners[2].x - corners[1].x, corners[2].y - corners[1].y);
+              const ratio = Math.max(topWidth, bottomWidth) / Math.max(1, Math.max(leftHeight, rightHeight));
+              if (ratio < 0.22 || ratio > 4.5) continue;
+
+              largestArea = area;
+              const xs = corners.map(point => point.x);
+              const ys = corners.map(point => point.y);
+              const left = Math.max(0, Math.floor(Math.min(...xs) / scale));
+              const top = Math.max(0, Math.floor(Math.min(...ys) / scale));
+              const right = Math.min(sourceCanvas.width, Math.ceil(Math.max(...xs) / scale));
+              const bottom = Math.min(sourceCanvas.height, Math.ceil(Math.max(...ys) / scale));
+              const scaledCorners = corners.map(point => ({ x: point.x / scale, y: point.y / scale }));
+              const candidate = {
+                x: left,
+                y: top,
+                width: right - left,
+                height: bottom - top,
+                corners: scaledCorners,
+                detected: true,
+                method: 'opencv'
+              };
+
+              if (!best || area > best.area) best = { ...candidate, area };
+            } finally {
+              contour.delete();
+              polygon.delete();
+            }
+          }
+        } finally {
+          edges.delete();
+          dilated.delete();
+          contours.delete();
+          hierarchy.delete();
+        }
+      }
+
+      if (!best) return null;
+      delete best.area;
+      return best;
     }
 
     function detectDocumentWithJscanify(sourceCanvas) {
