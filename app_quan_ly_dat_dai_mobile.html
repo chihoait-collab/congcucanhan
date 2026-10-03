@@ -249,7 +249,7 @@
         <h3>1) Cấu hình API Google Apps Script</h3>
         <div class="field">
           <label>Web App URL</label>
-          <input id="webAppUrl" type="text" placeholder="https://script.google.com/macros/s/.../exec" />
+          <input id="webAppUrl" type="text" value="https://script.google.com/macros/s/AKfycby1nGc2_GmnJwmXjDMZUIMK2NQ43mB1xlh3VI06OUorJmOPs5hN-dFTDQZzWZabR4LB/exec" placeholder="https://script.google.com/macros/s/.../exec" />
         </div>
         <div class="footer-actions mt-8">
           <button class="secondary" type="button" onclick="testApiConnection()">Kiểm tra API</button>
@@ -430,7 +430,7 @@
 
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
         body: JSON.stringify({ action, payload })
       });
 
