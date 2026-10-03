@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Quản Lý Đất Đai & Quét Hồ Sơ</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- jsPDF for PDF generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- jsQR for QR Code scanning -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <!-- OpenCV.js for Document Scanning & Edge Detection -->
+  <script async src="https://docs.opencv.org/4.7.0/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
+
+  <style>
+    body {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    .spinner {
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      width: 24px;
+      height: 24px;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 pb-20">
+
+  <!-- Header Top Bar -->
+  <header class="sticky top-0 z-30 bg-blue-600 text-white shadow-md px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <i data-lucide="file-text" class="w-6 h-6"></i>
+      <h1 class="font-bold text-lg tracking-wide">Quản Lý Đất Đai</h1>
+    </div>
+    <div id="opencv-status" class="text-xs bg-blue-700 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+      <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+      <span>Đang nạp OpenCV...</span>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-md mx-auto p-3">
+
+    <!-- Search & Filter Bar -->
+    <section class="bg-white p-3 rounded-xl shadow-sm mb-3">
+      <div class="flex gap-2 mb-2">
+        <div class="relative flex-1">
+          <input type="text" id="searchInput" placeholder="Tìm tên, số thửa, số CCCD..." 
+            class="w-full bg-slate-100 pl-9 pr-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+        </div>
+        <button onclick="handleSearch()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-1 active:bg-blue-700">
+          <i data-lucide="search" class="w-4 h-4"></i> Tìm
+        </button>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-slate-500">
+        <span id="resultCount">Hiển thị: 0 kết quả</span>
+        <button onclick="openFormModal()" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1 text-xs shadow active:bg-emerald-700">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i> Thêm Thửa Đất
+        </button>
+      </div>
+    </section>
+
+    <!-- Data List View -->
+    <section id="dataList" class="space-y-3">
+      <div class="text-center py-10 text-slate-400">
+        <i data-lucide="database" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+        <p class="text-sm">Chưa có dữ liệu. Vui lòng bấm Tìm kiếm hoặc Thêm mới.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Form Modal -->
+  <div id="formModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex flex-col justify-end transition-opacity">
+    <div class="bg-white rounded-t-2xl max-h-[92vh] flex flex-col w-full max-w-md mx-auto overflow-hidden animate-slide-up">
+      
+      <!-- Modal Header -->
+      <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+        <h2 id="modalTitle" class="font-bold text-base text-slate-800">Thêm Hồ Sơ Đất Đai</h2>
+        <button onclick="closeFormModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-4 overflow-y-auto no-scrollbar space-y-3 flex-1 text-sm">
+        <input type="hidden" id="editRowIndex" value="">
+
+        <!-- Thông tin hành chính -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Tên Huyện</label>
+            <input type="text" id="inpTenHuyen" class="w-full border rounded-lg p-2 outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Tên Xã Mới</label>
+            <input type="text" id="inpTenXaMoi" class="w-full border rounded-lg p-2 outline-none focus:border-blue-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Họ & Tên Chủ Sử Dụng *</label>
+          <input type="text" id="inpHoTenCSD" class="w-full border rounded-lg p-2 font-medium outline-none focus:border-blue-500" placeholder="Nguyễn Văn A">
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Tờ Bản Đồ</label>
+            <input type="text" id="inpSoToMoi" class="w-full border rounded-lg p-2 outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Số Thửa *</label>
+            <input type="text" id="inpSoThuaMoi" class="w-full border rounded-lg p-2 outline-none focus:border-blue-500 font-semibold">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Diện Tích (m²)</label>
+            <input type="number" id="inpDienTich" class="w-full border rounded-lg p-2 outline-none focus:border-blue-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Số CCCD (Chủ Đất)</label>
+            <input type="text" id="inpSoCCCD" class="w-full border bg-amber-50 rounded-lg p-2 outline-none focus:border-blue-500 font-mono font-semibold" placeholder="Tự điền khi quét QR">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Ấp / Thôn</label>
+            <input type="text" id="inpAp" class="w-full border rounded-lg p-2 outline-none focus:border-blue-500">
+          </div>
+        </div>
+
+        <hr class="my-2 border-slate-200">
+
+        <!-- Khối Chụp ảnh & Xử lý Tài Liệu -->
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
+          <div class="flex justify-between items-center">
+            <label class="block text-xs font-bold text-slate-700">📸 Quét & Ghép PDF Tài Liệu</label>
+            <div class="flex items-center gap-1">
+              <input type="checkbox" id="autoCropOpt" checked class="rounded text-blue-600 focus:ring-0 w-3.5 h-3.5">
+              <label for="autoCropOpt" class="text-[11px] font-medium text-slate-600">Auto Crop OpenCV</label>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Loại Giấy Tờ Cần Chụp:</label>
+            <select id="scanDocType" onchange="toggleDocTypeUI()" class="w-full border rounded-lg p-2 text-xs font-bold bg-white text-blue-700 focus:border-blue-500">
+              <option value="GCN">📜 Giấy Chứng Nhận (Sổ Đỏ/Hồng - Nhiều Trang)</option>
+              <option value="CCCD">🪪 Căn Cước Công Dân (Bắt Buộc 2 Mặt)</option>
+            </select>
+          </div>
+
+          <!-- UI CHỤP CCCD (BẮT BUỘC 2 MẶT) -->
+          <div id="uiCCCD" class="space-y-2">
+            <p class="text-[11px] text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
+              ⚠️ Yêu cầu chụp đủ <b>cả 2 mặt</b> CCCD. Mặt trước dùng để quét tự động mã QR.
+            </p>
+            <div class="grid grid-cols-2 gap-2">
+              <!-- Mặt Trước -->
+              <div class="border-2 border-dashed border-slate-300 rounded-xl p-2 text-center bg-white relative cursor-pointer hover:border-blue-400 transition" onclick="triggerCamera('CCCD_FRONT')">
+                <div id="previewCCCDFront" class="h-28 flex flex-col justify-center items-center">
+                  <i data-lucide="qr-code" class="w-8 h-8 text-blue-500 mb-1"></i>
+                  <span class="text-xs font-semibold text-slate-700">Mặt Trước (QR) *</span>
+                </div>
+              </div>
+
+              <!-- Mặt Sau -->
+              <div class="border-2 border-dashed border-slate-300 rounded-xl p-2 text-center bg-white relative cursor-pointer hover:border-blue-400 transition" onclick="triggerCamera('CCCD_BACK')">
+                <div id="previewCCCDBack" class="h-28 flex flex-col justify-center items-center">
+                  <i data-lucide="camera" class="w-8 h-8 text-slate-400 mb-1"></i>
+                  <span class="text-xs font-semibold text-slate-700">Mặt Sau *</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- UI CHỤP GCN SỔ ĐỎ (NHIỀU TRANG KHÔNG CỐ ĐỊNH) -->
+          <div id="uiGCN" class="hidden space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-semibold text-slate-600">Danh sách trang đã chụp:</span>
+              <button onclick="triggerCamera('GCN_PAGE')" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 active:bg-blue-700 shadow-sm">
+                <i data-lucide="plus" class="w-4 h-4"></i> Chụp Thêm Trang
+              </button>
+            </div>
+
+            <!-- Lưới hình ảnh các trang GCN -->
+            <div id="gcnPagesContainer" class="grid grid-cols-3 gap-2 pt-1">
+              <!-- Render động các trang ở đây -->
+            </div>
+            <p id="gcnEmptyNote" class="text-center py-6 text-xs text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-white">
+              Chưa có trang nào. Bấm <b>"Chụp Thêm Trang"</b> để tiến hành chụp Sổ Đỏ/Hồng.
+            </p>
+          </div>
+
+          <!-- Hidden Input Files for Camera -->
+          <input type="file" id="inputCCCDFront" accept="image/*" capture="environment" class="hidden" onchange="handleImageCapture(this, 'CCCD_FRONT')">
+          <input type="file" id="inputCCCDBack" accept="image/*" capture="environment" class="hidden" onchange="handleImageCapture(this, 'CCCD_BACK')">
+          <input type="file" id="inputGCNPage" accept="image/*" capture="environment" class="hidden" onchange="handleImageCapture(this, 'GCN_PAGE')">
+
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-3 bg-slate-50 border-t border-slate-200 flex gap-2">
+        <button onclick="closeFormModal()" class="w-1/3 py-2.5 bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm">Hủy</button>
+        <button id="btnSave" onclick="saveRecord()" class="w-2/3 py-2.5 bg-blue-600 text-white font-semibold rounded-xl text-sm flex justify-center items-center gap-2 shadow active:bg-blue-700">
+          <i data-lucide="save" class="w-4 h-4"></i> Lưu Hồ Sơ PDF
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Processing Indicator Overlay -->
+  <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/60 z-50 hidden flex flex-col items-center justify-center text-white backdrop-blur-xs">
+    <div class="spinner mb-3"></div>
+    <p id="loadingText" class="text-sm font-semibold">Đang xử lý...</p>
+  </div>
+
+  <script>
+    // Global Config & State
+    const GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycby1nGc2_GmnJwmXjDMZUIMK2NQ43mB1xlh3VI06OUorJmOPs5hN-dFTDQZzWZabR4LB/exec"; 
+    let isOpenCvReady = false;
+
+    // Lưu trữ ảnh chụp Base64
+    let cccdImages = { front: null, back: null };
+    let gcnImages = []; // Mảng chứa danh sách các trang GCN [Base64_1, Base64_2, ...]
+
+    function onOpenCvReady() {
+      isOpenCvReady = true;
+      document.getElementById('opencv-status').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>OpenCV Sẵn Sàng</span>`;
+      document.getElementById('opencv-status').className = "text-xs bg-emerald-800 text-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1.5";
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      handleSearch();
+    });
+
+    // Chuyển đổi giao diện chọn loại tài liệu
+    function toggleDocTypeUI() {
+      const type = document.getElementById('scanDocType').value;
+      if (type === 'CCCD') {
+        document.getElementById('uiCCCD').classList.remove('hidden');
+        document.getElementById('uiGCN').classList.add('hidden');
+      } else {
+        document.getElementById('uiCCCD').classList.add('hidden');
+        document.getElementById('uiGCN').classList.remove('hidden');
+      }
+    }
+
+    // -----------------------------------------------------------------------------
+    // API CALLS
+    // -----------------------------------------------------------------------------
+    async function apiPost(action, payload = {}) {
+      showLoading(true, "Đang kết nối Server...");
+      try {
+        const response = await fetch(GOOGLE_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action, payload })
+        });
+        const data = await response.json();
+        showLoading(false);
+        return data;
+      } catch (err) {
+        showLoading(false);
+        alert("Lỗi kết nối API: " + err.message);
+        return { success: false, error: err.message };
+      }
+    }
+
+    async function handleSearch() {
+      const query = document.getElementById('searchInput').value.trim();
+      const res = await apiPost("SEARCH", { query, limit: 30 });
+
+      if (res.success) {
+        renderDataList(res.data);
+        document.getElementById('resultCount').innerText = `Hiển thị: ${res.count || 0} kết quả`;
+      }
+    }
+
+    function renderDataList(items) {
+      const container = document.getElementById('dataList');
+      if (!items || items.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-10 text-slate-400 bg-white rounded-xl shadow-sm">
+            <i data-lucide="file-x" class="w-10 h-10 mx-auto mb-2 opacity-40"></i>
+            <p class="text-sm">Không tìm thấy hồ sơ phù hợp</p>
+          </div>`;
+        lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = items.map(item => `
+        <div class="bg-white p-3.5 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between">
+          <div class="flex justify-between items-start mb-2">
+            <div>
+              <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">Thửa: ${item.soThuaMoi || 'N/A'} (Tờ ${item.soToMoi || 'N/A'})</span>
+              <h3 class="font-bold text-slate-800 text-base mt-1">${item.hoTenCSD || 'Chưa có tên'}</h3>
+            </div>
+            <span class="text-xs font-semibold px-2 py-1 rounded ${item.theChap ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}">
+              ${item.theChap ? 'Thế chấp' : 'Tự do'}
+            </span>
+          </div>
+
+          <div class="text-xs text-slate-500 space-y-1 mb-3">
+            <p>📍 Xã: <b>${item.tenXaMoi || 'N/A'}</b> | Huyện: <b>${item.tenHuyen || 'N/A'}</b></p>
+            <p>📐 Diện tích: <b>${item.dienTich ? item.dienTich + ' m²' : 'N/A'}</b> | CCCD: <b class="font-mono">${item.soCCCD || 'N/A'}</b></p>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 border-t border-slate-100 gap-2">
+            <div class="flex gap-2">
+              ${item.fileGCN ? `<a href="${item.fileGCN}" target="_blank" class="text-xs font-semibold text-blue-600 flex items-center gap-1 bg-slate-100 px-2 py-1 rounded"><i data-lucide="file-text" class="w-3.5 h-3.5"></i> Sổ Đỏ</a>` : ''}
+              ${item.fileCCCD ? `<a href="${item.fileCCCD}" target="_blank" class="text-xs font-semibold text-purple-600 flex items-center gap-1 bg-slate-100 px-2 py-1 rounded"><i data-lucide="id-card" class="w-3.5 h-3.5"></i> CCCD</a>` : ''}
+            </div>
+
+            <div class="flex gap-1">
+              <button onclick="editRecord(${JSON.stringify(item).replace(/"/g, '&quot;')})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg">
+                <i data-lucide="edit-3" class="w-4 h-4"></i>
+              </button>
+              <button onclick="deleteRecord(${item.rowIndex})" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      lucide.createIcons();
+    }
+
+    // -----------------------------------------------------------------------------
+    // CAMERA & DOCUMENT PROCESSING
+    // -----------------------------------------------------------------------------
+    function triggerCamera(type) {
+      if (type === 'CCCD_FRONT') document.getElementById('inputCCCDFront').click();
+      else if (type === 'CCCD_BACK') document.getElementById('inputCCCDBack').click();
+      else if (type === 'GCN_PAGE') document.getElementById('inputGCNPage').click();
+    }
+
+    async function handleImageCapture(input, targetType) {
+      if (!input.files || !input.files[0]) return;
+      const file = input.files[0];
+
+      showLoading(true, "Đang quét & tối ưu hình ảnh...");
+
+      const imageBitmap = await createImageBitmap(file);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = imageBitmap.width;
+      canvas.height = imageBitmap.height;
+      ctx.drawImage(imageBitmap, 0, 0);
+
+      // Quét mã QR nếu là CCCD mặt trước
+      if (targetType === 'CCCD_FRONT') {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        if (code && code.data) {
+          const parts = code.data.split('|');
+          if (parts[0] && parts[0].length === 12) {
+            document.getElementById('inpSoCCCD').value = parts[0];
+            if (parts[2]) document.getElementById('inpHoTenCSD').value = parts[2];
+            alert("✅ Đã trích xuất thông tin từ mã QR CCCD:\n- Số CCCD: " + parts[0] + "\n- Họ tên: " + (parts[2] || ''));
+          }
+        }
+      }
+
+      // OpenCV Auto Crop
+      let processedCanvas = canvas;
+      const autoCrop = document.getElementById('autoCropOpt').checked;
+      if (autoCrop && isOpenCvReady) {
+        try {
+          processedCanvas = processDocumentOpenCV(canvas);
+        } catch (e) {
+          console.warn("OpenCV Fallback:", e);
+        }
+      }
+
+      // Nén JPEG 0.75
+      const compressedBase64 = processedCanvas.toDataURL('image/jpeg', 0.75);
+
+      // Lưu trữ và cập nhật UI tương ứng
+      if (targetType === 'CCCD_FRONT') {
+        cccdImages.front = compressedBase64;
+        document.getElementById('previewCCCDFront').innerHTML = `<img src="${compressedBase64}" class="h-28 w-full object-cover rounded-lg">`;
+      } else if (targetType === 'CCCD_BACK') {
+        cccdImages.back = compressedBase64;
+        document.getElementById('previewCCCDBack').innerHTML = `<img src="${compressedBase64}" class="h-28 w-full object-cover rounded-lg">`;
+      } else if (targetType === 'GCN_PAGE') {
+        gcnImages.push(compressedBase64);
+        renderGCNPagesUI();
+      }
+
+      // Reset input file để có thể chụp lại nhiều lần cùng 1 máy
+      input.value = '';
+      showLoading(false);
+    }
+
+    // Render danh sách ảnh các trang GCN
+    function renderGCNPagesUI() {
+      const container = document.getElementById('gcnPagesContainer');
+      const emptyNote = document.getElementById('gcnEmptyNote');
+
+      if (gcnImages.length === 0) {
+        container.innerHTML = '';
+        emptyNote.classList.remove('hidden');
+        return;
+      }
+
+      emptyNote.classList.add('hidden');
+      container.innerHTML = gcnImages.map((imgBase64, index) => `
+        <div class="relative group border rounded-lg overflow-hidden bg-white shadow-xs">
+          <img src="${imgBase64}" class="h-24 w-full object-cover">
+          <div class="absolute top-1 left-1 bg-black/60 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+            T${index + 1}
+          </div>
+          <button onclick="removeGCNPage(${index})" class="absolute top-1 right-1 bg-rose-600 text-white p-1 rounded-full shadow hover:bg-rose-700">
+            <i data-lucide="x" class="w-3 h-3"></i>
+          </button>
+        </div>
+      `).join('');
+
+      lucide.createIcons();
+    }
+
+    function removeGCNPage(index) {
+      gcnImages.splice(index, 1);
+      renderGCNPagesUI();
+    }
+
+    // OpenCV Processing
+    function processDocumentOpenCV(srcCanvas) {
+      let src = cv.imread(srcCanvas);
+      let dst = new cv.Mat();
+      let ksize = new cv.Size(5, 5);
+      cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
+      cv.GaussianBlur(dst, dst, ksize, 0, 0, cv.BORDER_DEFAULT);
+      cv.Canny(dst, dst, 75, 200);
+
+      let contours = new cv.MatVector();
+      let hierarchy = new cv.Mat();
+      cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+      let maxArea = 0;
+      let maxContour = null;
+      for (let i = 0; i < contours.size(); ++i) {
+        let cnt = contours.get(i);
+        let area = cv.contourArea(cnt);
+        if (area > maxArea) {
+          maxArea = area;
+          maxContour = cnt;
+        }
+      }
+
+      let outCanvas = srcCanvas;
+      if (maxContour && maxArea > (src.rows * src.cols * 0.2)) {
+        let peri = cv.arcLength(maxContour, true);
+        let approx = new cv.Mat();
+        cv.approxPolyDP(maxContour, approx, 0.02 * peri, true);
+        approx.delete();
+      }
+
+      src.delete(); dst.delete(); contours.delete(); hierarchy.delete();
+      return outCanvas;
+    }
+
+    // -----------------------------------------------------------------------------
+    // ĐÓNG GÓI PDF DÙNG JSPDF
+    // -----------------------------------------------------------------------------
+    async function generatePdfBase64(docType) {
+      const { jsPDF } = window.jspdf;
+
+      if (docType === 'CCCD') {
+        // Kiểm tra bắt buộc đủ 2 mặt
+        if (!cccdImages.front || !cccdImages.back) {
+          alert("⚠️ Lỗi: Bạn phải chụp ĐỦ CẢ 2 MẶT của Căn Cước Công Dân!");
+          return null;
+        }
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const width = pdf.internal.pageSize.getWidth();
+        const height = pdf.internal.pageSize.getHeight();
+
+        // Nửa trên mặt trước, nửa dưới mặt sau
+        pdf.addImage(cccdImages.front, 'JPEG', 15, 15, width - 30, (height / 2) - 25);
+        pdf.addImage(cccdImages.back, 'JPEG', 15, (height / 2) + 10, width - 30, (height / 2) - 25);
+
+        return pdf.output('datauristring').split(',')[1];
+      } 
+      else if (docType === 'GCN') {
+        if (gcnImages.length === 0) {
+          alert("⚠️ Lỗi: Bạn chưa chụp trang Giấy Chứng Nhận (Sổ Đỏ/Hồng) nào!");
+          return null;
+        }
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const width = pdf.internal.pageSize.getWidth();
+        const height = pdf.internal.pageSize.getHeight();
+
+        // Nối tất cả các trang vào PDF (Mỗi hình 1 trang A4)
+        for (let i = 0; i < gcnImages.length; i++) {
+          if (i > 0) pdf.addPage();
+          pdf.addImage(gcnImages[i], 'JPEG', 5, 5, width - 10, height - 10);
+        }
+
+        return pdf.output('datauristring').split(',')[1];
+      }
+    }
+
+    // -----------------------------------------------------------------------------
+    // FORM ACTIONS
+    // -----------------------------------------------------------------------------
+    async function saveRecord() {
+      const hoTenCSD = document.getElementById('inpHoTenCSD').value.trim();
+      const soThuaMoi = document.getElementById('inpSoThuaMoi').value.trim();
+      const editRowIndex = document.getElementById('editRowIndex').value;
+      const docType = document.getElementById('scanDocType').value;
+
+      if (!hoTenCSD || !soThuaMoi) {
+        alert("Vui lòng điền Họ Tên Chủ Sử Dụng và Số Thửa!");
+        return;
+      }
+
+      showLoading(true, "Đang đóng gói file PDF...");
+      const pdfBase64 = await generatePdfBase64(docType);
+
+      if (!pdfBase64) {
+        showLoading(false);
+        return; // Dừng nếu vi phạm điều kiện chụp đủ ảnh
+      }
+
+      const payloadItem = {
+        tenHuyen: document.getElementById('inpTenHuyen').value,
+        tenXaMoi: document.getElementById('inpTenXaMoi').value,
+        hoTenCSD: hoTenCSD,
+        soToMoi: document.getElementById('inpSoToMoi').value,
+        soThuaMoi: soThuaMoi,
+        dienTich: document.getElementById('inpDienTich').value,
+        soCCCD: document.getElementById('inpSoCCCD').value,
+        ap: document.getElementById('inpAp').value
+      };
+
+      if (docType === 'GCN') payloadItem.fileGCNBase64 = pdfBase64;
+      else payloadItem.fileCCCDBase64 = pdfBase64;
+
+      showLoading(true, "Đang lưu lên Google Sheets & Drive...");
+
+      let res;
+      if (editRowIndex) {
+        payloadItem.rowIndex = editRowIndex;
+        res = await apiPost("UPDATE_BATCH", { items: [payloadItem] });
+      } else {
+        res = await apiPost("ADD_BATCH", { items: [payloadItem] });
+      }
+
+      if (res.success) {
+        alert("✅ " + res.message);
+        closeFormModal();
+        handleSearch();
+      }
+    }
+
+    async function deleteRecord(rowIndex) {
+      if (!confirm(`Bạn có chắc chắn muốn xóa dòng số ${rowIndex}?`)) return;
+      const res = await apiPost("DELETE_BATCH", { rowIndices: [rowIndex] });
+      if (res.success) {
+        alert("✅ Đã xóa hồ sơ thành công!");
+        handleSearch();
+      }
+    }
+
+    function editRecord(item) {
+      document.getElementById('modalTitle').innerText = "Sửa Hồ Sơ Đất Đai";
+      document.getElementById('editRowIndex').value = item.rowIndex;
+      document.getElementById('inpTenHuyen').value = item.tenHuyen || '';
+      document.getElementById('inpTenXaMoi').value = item.tenXaMoi || '';
+      document.getElementById('inpHoTenCSD').value = item.hoTenCSD || '';
+      document.getElementById('inpSoToMoi').value = item.soToMoi || '';
+      document.getElementById('inpSoThuaMoi').value = item.soThuaMoi || '';
+      document.getElementById('inpDienTich').value = item.dienTich || '';
+      document.getElementById('inpSoCCCD').value = item.soCCCD || '';
+      document.getElementById('inpAp').value = item.ap || '';
+
+      openFormModal();
+    }
+
+    // Modal Helpers
+    function openFormModal() {
+      document.getElementById('formModal').classList.remove('hidden');
+    }
+
+    function closeFormModal() {
+      document.getElementById('formModal').classList.add('hidden');
+      document.getElementById('editRowIndex').value = '';
+      cccdImages = { front: null, back: null };
+      gcnImages = [];
+      
+      document.getElementById('previewCCCDFront').innerHTML = `
+        <i data-lucide="qr-code" class="w-8 h-8 text-blue-500 mb-1"></i>
+        <span class="text-xs font-semibold text-slate-700">Mặt Trước (QR) *</span>`;
+      document.getElementById('previewCCCDBack').innerHTML = `
+        <i data-lucide="camera" class="w-8 h-8 text-slate-400 mb-1"></i>
+        <span class="text-xs font-semibold text-slate-700">Mặt Sau *</span>`;
+      
+      renderGCNPagesUI();
+      lucide.createIcons();
+    }
+
+    function showLoading(show, text = "Đang xử lý...") {
+      const el = document.getElementById('loadingOverlay');
+      document.getElementById('loadingText').innerText = text;
+      if (show) el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
