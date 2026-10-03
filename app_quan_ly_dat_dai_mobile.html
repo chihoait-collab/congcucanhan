@@ -11,8 +11,47 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- OpenCV.js (Yêu cầu bắt buộc cho jScanify) -->
-  <script async src="https://docs.opencv.org/4.7.0/opencv.js" type="text/javascript"></script>
+  <!-- OpenCV.js (Tải từ CDN chính. Nếu CDN bị chặn, hệ thống sẽ dùng chế độ dự phòng) -->
+  <script>
+    window.Module = {
+      onRuntimeInitialized: function () {
+        const statusEl = document.getElementById('opencv-status');
+        if (statusEl) {
+          statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>OpenCV & jScanify Sẵn Sàng</span>`;
+          statusEl.className = "text-xs bg-emerald-800 text-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm";
+        }
+        if (typeof jscanify !== 'undefined') {
+          scanner = new jscanify();
+        }
+        const captureBtn = document.getElementById('btnCapture');
+        if (captureBtn) captureBtn.removeAttribute('disabled');
+        startCamera();
+      }
+    };
+
+    function handleOpenCVLoadError() {
+      if (window.opencvFallbackMode) return;
+      console.warn('OpenCV CDN bị chặn hoặc không phản hồi. Đang chuyển sang chế độ dự phòng.');
+      const statusEl = document.getElementById('opencv-status');
+      if (statusEl) {
+        statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-yellow-300"></span><span>OpenCV không tải được - Chế độ dự phòng</span>`;
+        statusEl.className = "text-xs bg-yellow-800 text-yellow-100 px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm";
+      }
+      window.opencvFallbackMode = true;
+      const captureBtn = document.getElementById('btnCapture');
+      if (captureBtn) captureBtn.removeAttribute('disabled');
+      startCamera();
+    }
+
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        if (typeof window.cv === 'undefined' && !window.opencvFallbackMode) {
+          handleOpenCVLoadError();
+        }
+      }, 2500);
+    });
+  </script>
+  <script async src="https://docs.opencv.org/4.7.0/opencv.js" type="text/javascript" onerror="handleOpenCVLoadError()"></script>
   <!-- jScanify (Tự động nhận diện góc và cắt viền giấy tờ) -->
   <script src="https://cdn.jsdelivr.net/gh/eemeli/jscanify@master/src/jscanify.min.js"></script>
   <!-- Tesseract.js (OCR Đọc chữ tiếng Việt) -->
@@ -152,20 +191,6 @@
     // Khởi tạo Lucide Icons
     lucide.createIcons();
 
-    // Callback chờ OpenCV sẵn sàng cho jScanify
-    var Module = {
-      onRuntimeInitialized: function() {
-        const statusEl = document.getElementById('opencv-status');
-        if (statusEl) {
-          statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>OpenCV & jScanify Sẵn Sàng</span>`;
-          statusEl.className = "text-xs bg-emerald-800 text-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm";
-        }
-        scanner = new jscanify();
-        document.getElementById('btnCapture').removeAttribute('disabled');
-        startCamera();
-      }
-    };
-
     // Mở Camera thiết bị
     async function startCamera() {
       try {
@@ -180,26 +205,66 @@
     }
 
     // Chụp & Cắt Viền Tự Động bằng jScanify
+    function fallbackCapture() {
+      const video = document.getElementById('video');
+      const sourceCanvas = document.getElementById('scanCanvas');
+      const outputCanvas = document.getElementById('processedCanvas');
+      const width = video.videoWidth || 1280;
+      const height = video.videoHeight || 720;
+
+      sourceCanvas.width = width;
+      sourceCanvas.height = height;
+      const sourceCtx = sourceCanvas.getContext('2d');
+      sourceCtx.drawImage(video, 0, 0, width, height);
+
+      const cropX = Math.round(width * 0.08);
+      const cropY = Math.round(height * 0.12);
+      const cropW = Math.round(width * 0.84);
+      const cropH = Math.round(height * 0.76);
+
+      const cropped = document.createElement('canvas');
+      cropped.width = cropW;
+      cropped.height = cropH;
+      const croppedCtx = cropped.getContext('2d');
+      croppedCtx.drawImage(sourceCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+      originalScanCanvas = cropped;
+      outputCanvas.width = cropW;
+      outputCanvas.height = cropH;
+      outputCanvas.getContext('2d').drawImage(cropped, 0, 0);
+
+      document.getElementById('previewCard').classList.remove('hidden');
+      applyFilter('contrast');
+    }
+
     function captureAndScan() {
       const video = document.getElementById('video');
-      if (!scanner) {
-        alert("Hệ thống jScanify đang khởi động, vui lòng chờ trong giây lát.");
+      if (!video || !video.videoWidth) {
+        alert("Camera chưa sẵn sàng. Vui lòng chờ trong giây lát.");
         return;
       }
 
-      // Nắn chỉnh góc & cắt phẳng tài liệu bằng jScanify
-      const resultCanvas = scanner.extractPaper(video, 1200, 1600);
-      originalScanCanvas = resultCanvas;
+      if (!scanner || typeof jscanify === 'undefined' || window.opencvFallbackMode) {
+        fallbackCapture();
+        return;
+      }
 
-      // Hiển thị ra xem trước
-      const outputCanvas = document.getElementById('processedCanvas');
-      outputCanvas.width = resultCanvas.width;
-      outputCanvas.height = resultCanvas.height;
-      const ctx = outputCanvas.getContext('2d');
-      ctx.drawImage(resultCanvas, 0, 0);
+      try {
+        const resultCanvas = scanner.extractPaper(video, 1200, 1600);
+        originalScanCanvas = resultCanvas;
 
-      document.getElementById('previewCard').classList.remove('hidden');
-      applyFilter('contrast'); // Mặc định áp dụng tăng tương phản
+        const outputCanvas = document.getElementById('processedCanvas');
+        outputCanvas.width = resultCanvas.width;
+        outputCanvas.height = resultCanvas.height;
+        const ctx = outputCanvas.getContext('2d');
+        ctx.drawImage(resultCanvas, 0, 0);
+
+        document.getElementById('previewCard').classList.remove('hidden');
+        applyFilter('contrast');
+      } catch (error) {
+        console.warn('jScanify lỗi, chuyển sang chế độ dự phòng:', error);
+        fallbackCapture();
+      }
     }
 
     // Xử Lý Độ Tương Phản (Contrast / Thresholding)
