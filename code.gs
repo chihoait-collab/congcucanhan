@@ -108,6 +108,7 @@ function normalizeSearchText(value) {
 
 function rowToObject(row, rowIndex) {
   return {
+    rowIndex: rowIndex,
     STT: row[0] || rowIndex,
     'Tên huyện': row[1] || '',
     'Tên xã cũ': row[2] || '',
@@ -222,7 +223,9 @@ function saveScanRecord(payload) {
     record.fileUrl = saved.fileUrl || '';
   }
 
-  const row = [
+  const rowIndex = Number(payload && payload.rowIndex ? payload.rowIndex : 0);
+  const isUpdate = rowIndex >= 2 && rowIndex <= sheet.getLastRow();
+  let row = [
     record.STT,
     record['Tên huyện'],
     record['Tên xã cũ'],
@@ -247,13 +250,24 @@ function saveScanRecord(payload) {
     record.source
   ];
 
-  sheet.appendRow(row);
+  if (isUpdate) {
+    const existingRow = sheet.getRange(rowIndex, 1, 1, HEADER_ROW.length).getValues()[0];
+    row[0] = existingRow[0] || rowIndex - 1;
+    sheet.getRange(rowIndex, 1, 1, HEADER_ROW.length).setValues([row]);
+  } else {
+    row[0] = sheet.getLastRow();
+    sheet.appendRow(row);
+  }
 
   return {
     success: true,
-    message: 'Dữ liệu đã được lưu vào Google Sheet.',
+    message: isUpdate
+      ? 'Dữ liệu hồ sơ đã được cập nhật.'
+      : 'Dữ liệu đã được lưu vào Google Sheet.',
     fileId: record.fileId,
     fileUrl: record.fileUrl,
+    updated: isUpdate,
+    rowIndex: isUpdate ? rowIndex : sheet.getLastRow(),
     rowCount: sheet.getLastRow(),
     row
   };

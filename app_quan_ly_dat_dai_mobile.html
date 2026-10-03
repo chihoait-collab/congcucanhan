@@ -251,6 +251,19 @@
       text-overflow: ellipsis;
     }
 
+    .thumb-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 0 8px 8px;
+    }
+
+    .thumb-tools button { padding: 7px 9px; font-size: 12px; }
+
+    .thumb-tools .delete-scan { background: #fee2e2; color: #991b1b; }
+
+    .camera-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+
     .search-result {
       display: none;
       border: 1px solid var(--line);
@@ -337,6 +350,17 @@
           <canvas id="scanCanvas"></canvas>
           <div class="overlay"></div>
         </div>
+
+        <div class="camera-controls mt-8">
+          <div class="field">
+            <label for="cameraSelect">Camera</label>
+            <select id="cameraSelect" onchange="switchCamera(this.value)">
+              <option value="">Camera sau mặc định</option>
+            </select>
+          </div>
+          <button class="secondary" type="button" onclick="refreshCameras()" title="Tải lại danh sách camera">Làm mới</button>
+        </div>
+        <div id="cameraColorHint" class="helper mt-8">Nếu hình vẫn trắng đen, chọn camera khác trong danh sách.</div>
 
         <div class="footer-actions mt-8">
           <button class="primary" id="btnStartCamera" type="button" onclick="startCamera()">Bật camera</button>
@@ -463,7 +487,7 @@
 
         <div class="footer-actions mt-8">
           <button class="secondary" type="button" onclick="clearForm()">Xóa form</button>
-          <button class="success" type="button" onclick="saveCurrentRecord()">Lưu PDF vào Drive + Sheet</button>
+          <button class="success" id="btnSaveRecord" type="button" onclick="saveCurrentRecord()">Lưu PDF vào Drive + Sheet</button>
         </div>
       </div>
     </div>
@@ -477,7 +501,11 @@
       detectionFrame: 0,
       lastDetectionAt: 0,
       opencvReady: false,
-      scanner: null
+      scanner: null,
+      selectedRowIndex: null,
+      pendingRetakeId: null,
+      colorCheckFrame: 0,
+      grayscaleSamples: 0
     };
 
     const opencvReady = Promise.resolve(window.cv).then(module => {
@@ -611,7 +639,12 @@
         if (node) node.value = value;
       });
 
-      alert('Đã tải dữ liệu hồ sơ lên form.');
+      state.selectedRowIndex = Number(item.rowIndex) || null;
+      document.getElementById('btnSaveRecord').textContent = state.selectedRowIndex
+        ? 'Cập nhật dòng đã chọn'
+        : 'Lưu PDF vào Drive + Sheet';
+      setStatus(state.selectedRowIndex ? `Đang sửa dòng ${state.selectedRowIndex}` : 'Đã tải hồ sơ', 'success');
+      document.getElementById('btnSaveRecord').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     async function startCamera() {
@@ -625,8 +658,17 @@
         const openCvLoaded = await opencvReady;
         if (!openCvLoaded) throw new Error('Không khởi tạo được OpenCV.js từ file cục bộ.');
 
+        const selectedCamera = document.getElementById('cameraSelect').value;
+        const videoConstraints = {
+          width: { ideal: 2560 },
+          height: { ideal: 1920 },
+          frameRate: { ideal: 30, max: 30 }
+        };
+        if (selectedCamera) videoConstraints.deviceId = { exact: selectedCamera };
+        else videoConstraints.facingMode = { ideal: 'environment' };
+
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1920 }, frameRate: { ideal: 30, max: 30 } },
+          video: videoConstraints,
           audio: false
         });
 
@@ -635,7 +677,7 @@
         video.srcObject = stream;
         await video.play();
 
-        const track = stream.getVideoTracks()[0];
+        let track = stream.getVideoTracks()[0];
         if (track && track.applyConstraints) {
           try {
             const capabilities = track.getCapabilities ? track.getCapabilities() : {};
@@ -644,6 +686,31 @@
             }
           } catch (focusError) {
             console.info('Camera không hỗ trợ lấy nét liên tục qua trình duyệt.', focusError);
+          }
+        }
+
+        const activeDeviceId = track && track.getSettings ? track.getSettings().deviceId : '';
+        const cameras = await refreshCameras(activeDeviceId);
+        const activeCamera = cameras.find(camera => camera.deviceId === activeDeviceId);
+        const activeLabel = `${track && track.label || ''} ${activeCamera && activeCamera.label || ''}`;
+        if (isLikelyMonochromeCamera(activeLabel)) {
+          const colorCamera = cameras.find(camera => camera.deviceId !== activeDeviceId && !isLikelyMonochromeCamera(camera.label));
+          if (colorCamera) {
+            stream.getTracks().forEach(activeTrack => activeTrack.stop());
+            const colorStream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                deviceId: { exact: colorCamera.deviceId },
+                width: { ideal: 2560 },
+                height: { ideal: 1920 },
+                frameRate: { ideal: 30, max: 30 }
+              },
+              audio: false
+            });
+            state.stream = colorStream;
+            video.srcObject = colorStream;
+            await video.play();
+            track = colorStream.getVideoTracks()[0];
+            await refreshCameras(track.getSettings ? track.getSettings().deviceId : colorCamera.deviceId);
           }
         }
 
@@ -657,6 +724,42 @@
         alert('Không thể mở camera: ' + error.message);
         setStatus('Camera lỗi', 'error');
       }
+    }
+
+    async function refreshCameras(activeDeviceId) {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return [];
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter(device => device.kind === 'videoinput');
+        const selector = document.getElementById('cameraSelect');
+        const currentValue = activeDeviceId || selector.value;
+        selector.innerHTML = '<option value="">Camera sau mặc định</option>';
+        cameras.forEach((camera, index) => {
+          const option = document.createElement('option');
+          option.value = camera.deviceId;
+          option.textContent = camera.label || `Camera ${index + 1}`;
+          if (/mono|infrared|\bir\b|depth|đen trắng/i.test(option.textContent)) option.textContent += ' (có thể là camera đơn sắc)';
+          selector.appendChild(option);
+        });
+        if (currentValue && cameras.some(camera => camera.deviceId === currentValue)) selector.value = currentValue;
+        return cameras;
+      } catch (error) {
+        console.info('Không đọc được danh sách camera.', error);
+        return [];
+      }
+    }
+
+    function isLikelyMonochromeCamera(label) {
+      return /mono|infrared|\bir\b|depth|grayscale|đen trắng|black.?and.?white/i.test(String(label || ''));
+    }
+
+    async function switchCamera(deviceId) {
+      if (!deviceId || !state.stream) return;
+      state.stream.getTracks().forEach(track => track.stop());
+      state.stream = null;
+      if (state.detectionFrame) cancelAnimationFrame(state.detectionFrame);
+      setStatus('Đang đổi camera...', 'normal');
+      await startCamera();
     }
 
     async function capturePage(type) {
@@ -675,6 +778,10 @@
       }
 
       const canvas = document.getElementById('scanCanvas');
+      const pendingItem = state.pendingRetakeId
+        ? [...state.documentPages, ...state.cccdPhotos].find(item => item.id === state.pendingRetakeId)
+        : null;
+      const captureType = pendingItem ? pendingItem.type : type;
       const track = state.stream && state.stream.getVideoTracks()[0];
       let photoBitmap = null;
       if (track && 'ImageCapture' in window) {
@@ -692,24 +799,29 @@
       canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
       if (photoBitmap && photoBitmap.close) photoBitmap.close();
 
+      const originalCanvas = document.createElement('canvas');
+      originalCanvas.width = canvas.width;
+      originalCanvas.height = canvas.height;
+      originalCanvas.getContext('2d').drawImage(canvas, 0, 0);
       const scan = prepareScan(canvas, { targetLongEdge: 3000 });
-      const processed = scan.canvas;
-      const imageData = processed.toDataURL('image/jpeg', 0.92);
+      const item = {
+        id: state.pendingRetakeId || createScanId(),
+        type: captureType,
+        canvas: scan.canvas,
+        originalCanvas,
+        fileName: captureType === 'document' ? 'Ảnh chụp' : (captureType === 'cccd-front' ? 'CCCD mặt trước' : 'CCCD mặt sau'),
+        detected: scan.detected,
+        method: scan.method
+      };
 
-      if (type === 'document') {
-        state.documentPages.push(processed);
-        document.getElementById('docPageCount').textContent = state.documentPages.length;
-      } else {
-        state.cccdPhotos.push({ type, canvas: processed });
+      if (state.pendingRetakeId) {
+        replaceScanItem(item);
+        state.pendingRetakeId = null;
+        setStatus(scan.detected ? 'Đã chụp lại và thay ảnh tại vị trí cũ' : 'Đã thay ảnh tại vị trí cũ (mép chưa nhận diện)', scan.detected ? 'success' : 'normal');
+        return;
       }
 
-      const label = type === 'document' ? `Trang ${state.documentPages.length}` : (type === 'cccd-front' ? 'CCCD mặt trước' : 'CCCD mặt sau');
-      const holder = document.createElement('div');
-      holder.className = 'thumb';
-      holder.innerHTML = `<img src="${imageData}" alt="${label}" /><div class="thumb-name">${label}</div>`;
-      document.getElementById('thumbList').prepend(holder);
-
-      updateCccdCount();
+      addScanItem(item);
       setStatus(scan.detected ? 'Đã nhận diện và cắt tài liệu' : 'Đã chụp ảnh (không nhận diện được mép)', scan.detected ? 'success' : 'normal');
     }
 
@@ -721,7 +833,8 @@
       try {
         if (!(await opencvReady)) throw new Error('OpenCV.js chưa sẵn sàng để nhận diện tài liệu.');
 
-        for (const file of files) {
+        const filesToProcess = state.pendingRetakeId ? files.slice(0, 1) : files;
+        for (const file of filesToProcess) {
           const sourceBitmap = await decodeImageFile(file);
           try {
             const sourceCanvas = document.createElement('canvas');
@@ -730,15 +843,30 @@
             sourceCanvas.getContext('2d').drawImage(sourceBitmap, 0, 0);
 
             const scan = prepareScan(sourceCanvas, { targetLongEdge: 3000 });
-            state.documentPages.push(scan.canvas);
-            renderImageComparison(sourceCanvas, scan.canvas, file.name, scan);
+            const pendingItem = state.pendingRetakeId
+              ? [...state.documentPages, ...state.cccdPhotos].find(existing => existing.id === state.pendingRetakeId)
+              : null;
+            const item = {
+              id: state.pendingRetakeId || createScanId(),
+              type: pendingItem ? pendingItem.type : 'document',
+              canvas: scan.canvas,
+              originalCanvas: sourceCanvas,
+              fileName: file.name,
+              detected: scan.detected,
+              method: scan.method
+            };
+            if (state.pendingRetakeId) {
+              replaceScanItem(item);
+              state.pendingRetakeId = null;
+            } else {
+              addScanItem(item);
+            }
           } finally {
             if (sourceBitmap.close) sourceBitmap.close();
           }
         }
 
-        document.getElementById('docPageCount').textContent = state.documentPages.length;
-        setStatus(`Đã xử lý ${files.length} ảnh`, 'success');
+        setStatus(state.pendingRetakeId ? 'Đã thay ảnh tại vị trí cũ' : `Đã xử lý ${filesToProcess.length} ảnh`, 'success');
       } catch (error) {
         alert('Không xử lý được ảnh: ' + error.message);
         setStatus('Lỗi xử lý ảnh', 'error');
@@ -797,6 +925,8 @@
       const video = document.getElementById('video');
       if (!video.videoWidth || !video.videoHeight) return;
 
+      checkCameraColor(video);
+
       const previewCanvas = document.getElementById('scanCanvas');
       const scale = Math.min(1, 320 / Math.max(video.videoWidth, video.videoHeight));
       previewCanvas.width = Math.max(1, Math.round(video.videoWidth * scale));
@@ -830,8 +960,129 @@
       overlay.style.height = `${Math.min(shell.clientHeight - Math.max(0, top), height)}px`;
     }
 
+    function checkCameraColor(video) {
+      if (state.colorCheckFrame % 8 !== 0) {
+        state.colorCheckFrame++;
+        return;
+      }
+      state.colorCheckFrame = 1;
+
+      const probe = document.createElement('canvas');
+      probe.width = 24;
+      probe.height = 24;
+      const context = probe.getContext('2d', { willReadFrequently: true });
+      context.drawImage(video, 0, 0, probe.width, probe.height);
+      const pixels = context.getImageData(0, 0, probe.width, probe.height).data;
+      let chroma = 0;
+      let luminance = 0;
+      let count = 0;
+      for (let i = 0; i < pixels.length; i += 16) {
+        chroma += Math.abs(pixels[i] - pixels[i + 1]) + Math.abs(pixels[i + 1] - pixels[i + 2]);
+        luminance += pixels[i] + pixels[i + 1] + pixels[i + 2];
+        count++;
+      }
+
+      const averageChroma = chroma / (count * 2);
+      const hint = document.getElementById('cameraColorHint');
+      if (luminance > 0 && averageChroma < 2.5) {
+        state.grayscaleSamples++;
+      } else {
+        state.grayscaleSamples = Math.max(0, state.grayscaleSamples - 2);
+      }
+
+      if (state.grayscaleSamples >= 3) {
+        hint.textContent = 'Luồng camera đang gần trắng đen. Hãy chọn camera màu khác; ứng dụng không thể tạo lại màu từ cảm biến đơn sắc.';
+        hint.style.color = '#b91c1c';
+      } else {
+        hint.textContent = 'Preview camera giữ màu nguyên bản. Nếu hình vẫn trắng đen, chọn camera khác trong danh sách.';
+        hint.style.color = '';
+      }
+    }
+
     function updateCccdCount() {
+      document.getElementById('docPageCount').textContent = state.documentPages.length;
       document.getElementById('cccdPageCount').textContent = state.cccdPhotos.length;
+    }
+
+    function createScanId() {
+      return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+
+    function getScanCollection(type) {
+      return type === 'document' ? state.documentPages : state.cccdPhotos;
+    }
+
+    function addScanItem(item) {
+      getScanCollection(item.type).push(item);
+      renderScanItem(item);
+      updateCccdCount();
+    }
+
+    function replaceScanItem(item) {
+      const collection = getScanCollection(item.type);
+      const index = collection.findIndex(existing => existing.id === item.id);
+      if (index < 0) {
+        addScanItem(item);
+        return;
+      }
+      collection[index] = item;
+      renderScanItem(item);
+      updateCccdCount();
+    }
+
+    function renderScanItem(item) {
+      const originalUrl = item.originalCanvas.toDataURL('image/jpeg', 0.9);
+      const processedUrl = item.canvas.toDataURL('image/jpeg', 0.92);
+      const collection = getScanCollection(item.type);
+      const slot = collection.findIndex(scan => scan.id === item.id) + 1;
+      const label = item.type === 'document'
+        ? `Trang ${slot}: ${item.fileName}`
+        : `${item.type === 'cccd-front' ? 'CCCD mặt trước' : 'CCCD mặt sau'}: ${item.fileName}`;
+      const holder = document.createElement('div');
+      holder.className = 'thumb comparison';
+      holder.dataset.scanId = item.id;
+      holder.innerHTML = `
+        <div class="thumb-name">${escapeHtml(label)} · ${item.detected ? 'Đã nhận diện' : 'Chưa nhận diện được mép'}</div>
+        <div class="comparison-images">
+          <figure><img src="${originalUrl}" alt="Ảnh gốc: ${escapeHtml(item.fileName)}" /><figcaption>Ảnh gốc</figcaption></figure>
+          <figure><img src="${processedUrl}" alt="Ảnh đã căn chỉnh: ${escapeHtml(item.fileName)}" /><figcaption>Kết quả căn chỉnh (${escapeHtml(item.method || 'fallback')})</figcaption></figure>
+        </div>
+        <div class="thumb-tools">
+          <button type="button" class="secondary" onclick="retakeScan('${item.id}')">Chụp lại</button>
+          <button type="button" class="secondary" onclick="replaceScanFromFile('${item.id}')">Chọn ảnh khác</button>
+          <button type="button" class="delete-scan" onclick="deleteScan('${item.id}')">Xóa ảnh</button>
+        </div>
+      `;
+      const list = document.getElementById('thumbList');
+      const existing = list.querySelector(`[data-scan-id="${item.id}"]`);
+      if (existing) existing.replaceWith(holder);
+      else list.appendChild(holder);
+    }
+
+    function deleteScan(scanId) {
+      [state.documentPages, state.cccdPhotos].forEach(collection => {
+        const index = collection.findIndex(item => item.id === scanId);
+        if (index >= 0) collection.splice(index, 1);
+      });
+      const card = document.querySelector(`[data-scan-id="${scanId}"]`);
+      if (card) card.remove();
+      if (state.pendingRetakeId === scanId) state.pendingRetakeId = null;
+      updateCccdCount();
+      setStatus('Đã xóa ảnh scan', 'normal');
+    }
+
+    async function retakeScan(scanId) {
+      const item = [...state.documentPages, ...state.cccdPhotos].find(scan => scan.id === scanId);
+      if (!item) return;
+      state.pendingRetakeId = scanId;
+      if (!state.stream) await startCamera();
+      if (state.stream) setStatus('Chụp lại ảnh này; ảnh mới sẽ thay đúng vị trí cũ', 'normal');
+    }
+
+    function replaceScanFromFile(scanId) {
+      if (![...state.documentPages, ...state.cccdPhotos].some(item => item.id === scanId)) return;
+      state.pendingRetakeId = scanId;
+      document.getElementById('imageFiles').click();
     }
 
     function detectDocumentBounds(sourceCanvas) {
@@ -1214,7 +1465,7 @@
 
     function buildPdfFromScans() {
       const pages = [
-        ...state.documentPages,
+        ...state.documentPages.map(item => item.canvas),
         ...state.cccdPhotos.map(item => item.canvas)
       ];
 
@@ -1269,6 +1520,7 @@
           fileCCCD: document.getElementById('fileCCCD').value.trim(),
           soCCCD: document.getElementById('soCCCD').value.trim(),
           ocrText: document.getElementById('ocrText').value.trim(),
+          rowIndex: state.selectedRowIndex,
           pageCount: state.documentPages.length + state.cccdPhotos.length,
           createdAt: new Date().toISOString(),
           fileName: `Ho_So_Dat_Dai_${Date.now()}.pdf`,
@@ -1278,12 +1530,14 @@
         const result = await apiRequest('SAVE_SCAN', payload);
 
         if (result.fileId) {
-          alert('Lưu thành công! File PDF đã được lưu vào Drive.\nFile ID: ' + result.fileId);
+          alert(`${result.message || 'Lưu thành công.'}\nFile PDF đã lưu vào Drive.\nFile ID: ${result.fileId}`);
         } else {
-          alert('Lưu thông tin lên Google Sheet thành công.');
+          alert(result.message || 'Lưu thông tin lên Google Sheet thành công.');
         }
 
-        setStatus('Lưu thành công', 'success');
+        state.selectedRowIndex = null;
+        document.getElementById('btnSaveRecord').textContent = 'Lưu PDF vào Drive + Sheet';
+        setStatus(result.updated ? 'Đã cập nhật hồ sơ' : 'Đã tạo hồ sơ mới', 'success');
       } catch (error) {
         alert('Lỗi khi lưu PDF: ' + error.message);
         setStatus('Lưu lỗi', 'error');
@@ -1296,6 +1550,9 @@
 
       state.documentPages = [];
       state.cccdPhotos = [];
+      state.selectedRowIndex = null;
+      state.pendingRetakeId = null;
+      document.getElementById('btnSaveRecord').textContent = 'Lưu PDF vào Drive + Sheet';
       document.getElementById('docPageCount').textContent = '0';
       document.getElementById('cccdPageCount').textContent = '0';
       document.getElementById('thumbList').innerHTML = '';
