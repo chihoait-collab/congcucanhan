@@ -362,6 +362,16 @@
         </div>
         <div id="cameraColorHint" class="helper mt-8">Nếu hình vẫn trắng đen, chọn camera khác trong danh sách.</div>
 
+        <div class="field mt-8">
+          <label for="scanMode">Phương pháp căn chỉnh</label>
+          <select id="scanMode" onchange="setScanMode(this.value)">
+            <option value="opencv">OpenCV (khuyến nghị)</option>
+            <option value="fallback">Dự phòng (jscanify / dò nền)</option>
+            <option value="all">Thử tất cả và chọn kết quả phù hợp nhất</option>
+          </select>
+          <div class="helper">Chế độ “Tất cả” chạy nhiều bộ nhận diện hơn nên có thể xử lý lâu hơn.</div>
+        </div>
+
         <div class="footer-actions mt-8">
           <button class="primary" id="btnStartCamera" type="button" onclick="startCamera()">Bật camera</button>
           <button class="secondary" id="btnCapturePage" type="button" onclick="capturePage('document')" disabled>Chụp trang giấy tờ</button>
@@ -505,7 +515,8 @@
       selectedRowIndex: null,
       pendingRetakeId: null,
       colorCheckFrame: 0,
-      grayscaleSamples: 0
+      grayscaleSamples: 0,
+      scanMode: localStorage.getItem('landScanMode') || 'opencv'
     };
 
     const opencvReady = Promise.resolve(window.cv).then(module => {
@@ -519,6 +530,14 @@
       console.error('Không thể khởi tạo OpenCV.js.', error);
       return false;
     });
+
+    document.getElementById('scanMode').value = ['opencv', 'fallback', 'all'].includes(state.scanMode) ? state.scanMode : 'opencv';
+
+    function setScanMode(mode) {
+      state.scanMode = ['opencv', 'fallback', 'all'].includes(mode) ? mode : 'opencv';
+      localStorage.setItem('landScanMode', state.scanMode);
+      setStatus(`Đã chọn căn chỉnh: ${state.scanMode === 'opencv' ? 'OpenCV' : state.scanMode === 'fallback' ? 'Dự phòng' : 'Tất cả'}`, 'success');
+    }
 
     function setStatus(message, tone = 'normal') {
       const badge = document.getElementById('statusBadge');
@@ -919,7 +938,7 @@
       state.detectionFrame = requestAnimationFrame(scanCameraPreview);
 
       const now = performance.now();
-      if (now - state.lastDetectionAt < 300) return;
+      if (now - state.lastDetectionAt < 800) return;
       state.lastDetectionAt = now;
 
       const video = document.getElementById('video');
@@ -928,7 +947,7 @@
       checkCameraColor(video);
 
       const previewCanvas = document.getElementById('scanCanvas');
-      const scale = Math.min(1, 320 / Math.max(video.videoWidth, video.videoHeight));
+      const scale = Math.min(1, 240 / Math.max(video.videoWidth, video.videoHeight));
       previewCanvas.width = Math.max(1, Math.round(video.videoWidth * scale));
       previewCanvas.height = Math.max(1, Math.round(video.videoHeight * scale));
       previewCanvas.getContext('2d').drawImage(video, 0, 0, previewCanvas.width, previewCanvas.height);
@@ -1031,8 +1050,8 @@
     }
 
     function renderScanItem(item) {
-      const originalUrl = item.originalCanvas.toDataURL('image/jpeg', 0.9);
-      const processedUrl = item.canvas.toDataURL('image/jpeg', 0.92);
+      const originalUrl = createScanPreviewUrl(item.originalCanvas);
+      const processedUrl = createScanPreviewUrl(item.canvas);
       const collection = getScanCollection(item.type);
       const slot = collection.findIndex(scan => scan.id === item.id) + 1;
       const label = item.type === 'document'
@@ -1057,6 +1076,16 @@
       const existing = list.querySelector(`[data-scan-id="${item.id}"]`);
       if (existing) existing.replaceWith(holder);
       else list.appendChild(holder);
+    }
+
+    function createScanPreviewUrl(sourceCanvas) {
+      const maxEdge = 900;
+      const scale = Math.min(1, maxEdge / Math.max(sourceCanvas.width, sourceCanvas.height));
+      const preview = document.createElement('canvas');
+      preview.width = Math.max(1, Math.round(sourceCanvas.width * scale));
+      preview.height = Math.max(1, Math.round(sourceCanvas.height * scale));
+      preview.getContext('2d').drawImage(sourceCanvas, 0, 0, preview.width, preview.height);
+      return preview.toDataURL('image/jpeg', 0.82);
     }
 
     function deleteScan(scanId) {
@@ -1085,9 +1114,40 @@
       document.getElementById('imageFiles').click();
     }
 
-    function detectDocumentBounds(sourceCanvas) {
-      const openCvBounds = detectDocumentWithOpenCv(sourceCanvas);
-      if (openCvBounds) return openCvBounds;
+    function detectDocumentBounds(sourceCanvas, mode = state.scanMode) {
+      if (mode === 'opencv') {
+        return detectDocumentWithOpenCv(sourceCanvas, false) || detectDocumentWithJscanify(sourceCanvas) || detectDocumentByColorFallback(sourceCanvas);
+      }
+
+      if (mode === 'fallback') {
+        return detectDocumentWithJscanify(sourceCanvas) || detectDocumentByColorFallback(sourceCanvas);
+      }
+
+      const candidates = [
+        detectDocumentWithOpenCv(sourceCanvas, false),
+        detectDocumentWithJscanify(sourceCanvas),
+        detectDocumentByColorFallback(sourceCanvas)
+      ].filter(Boolean);
+      if (!candidates.length) return detectDocumentByColorFallback(sourceCanvas);
+      return candidates.reduce((best, candidate) => scoreDocumentBounds(candidate, sourceCanvas) > scoreDocumentBounds(best, sourceCanvas) ? candidate : best);
+    }
+
+    function scoreDocumentBounds(bounds, sourceCanvas) {
+      const boxArea = bounds.width * bounds.height;
+      const frameArea = sourceCanvas.width * sourceCanvas.height;
+      const areaRatio = boxArea / frameArea;
+      let score = bounds.detected ? 30 : 0;
+      score += bounds.corners ? 30 : 0;
+      score += bounds.method === 'opencv' ? 20 : bounds.method === 'jscanify' ? 12 : 0;
+      score -= areaRatio > 0.92 ? 100 : areaRatio < 0.08 ? 35 : 0;
+      if (bounds.corners) {
+        const margin = Math.min(...bounds.corners.map(point => Math.min(point.x, point.y, sourceCanvas.width - point.x, sourceCanvas.height - point.y)));
+        if (margin > Math.min(sourceCanvas.width, sourceCanvas.height) * 0.01) score += 10;
+      }
+      return score;
+    }
+
+    function detectDocumentByColorFallback(sourceCanvas) {
 
       const sourceW = sourceCanvas.width;
       const sourceH = sourceCanvas.height;
@@ -1194,11 +1254,13 @@
       return [topLeft, topRight, bottomRight, bottomLeft];
     }
 
-    function detectDocumentWithOpenCv(sourceCanvas) {
+    function detectDocumentWithOpenCv(sourceCanvas, includeJscanify = false) {
       if (!state.opencvReady) return null;
 
-      const jscanifyBounds = detectDocumentWithJscanify(sourceCanvas);
-      if (jscanifyBounds) return jscanifyBounds;
+      if (includeJscanify) {
+        const jscanifyBounds = detectDocumentWithJscanify(sourceCanvas);
+        if (jscanifyBounds) return jscanifyBounds;
+      }
 
       const cv = window.cv;
       let source;
@@ -1218,9 +1280,10 @@
         const probe = document.createElement('canvas');
         probe.width = width;
         probe.height = height;
-        probe.getContext('2d').drawImage(sourceCanvas, 0, 0, width, height);
+        const probeContext = probe.getContext('2d', { willReadFrequently: true });
+        probeContext.drawImage(sourceCanvas, 0, 0, width, height);
 
-        source = cv.matFromImageData(probe.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, width, height));
+        source = cv.matFromImageData(probeContext.getImageData(0, 0, width, height));
         gray = new cv.Mat();
         blurred = new cv.Mat();
         edges = new cv.Mat();
@@ -1295,9 +1358,10 @@
         const probe = document.createElement('canvas');
         probe.width = width;
         probe.height = height;
-        probe.getContext('2d').drawImage(sourceCanvas, 0, 0, width, height);
+        const probeContext = probe.getContext('2d', { willReadFrequently: true });
+        probeContext.drawImage(sourceCanvas, 0, 0, width, height);
 
-        source = cv.matFromImageData(probe.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, width, height));
+        source = cv.matFromImageData(probeContext.getImageData(0, 0, width, height));
         contour = state.scanner.findPaperContour(source);
         if (!contour || contour.rows < 4 || Math.abs(cv.contourArea(contour)) < width * height * 0.08) return null;
 
@@ -1369,40 +1433,44 @@
       }
     }
 
-    function extractDocumentWithJscanify(sourceCanvas, corners) {
+    function extractDocumentWithJscanify(sourceCanvas, corners, maxEdge) {
       const points = {
         topLeftCorner: corners[0],
         topRightCorner: corners[1],
         bottomRightCorner: corners[2],
         bottomLeftCorner: corners[3]
       };
-      const width = Math.max(
+      const naturalWidth = Math.max(
         Math.hypot(corners[2].x - corners[3].x, corners[2].y - corners[3].y),
         Math.hypot(corners[1].x - corners[0].x, corners[1].y - corners[0].y)
       );
-      const height = Math.max(
+      const naturalHeight = Math.max(
         Math.hypot(corners[1].x - corners[2].x, corners[1].y - corners[2].y),
         Math.hypot(corners[0].x - corners[3].x, corners[0].y - corners[3].y)
       );
+      const output = fitScanDimensions(naturalWidth, naturalHeight, maxEdge || 3000);
+      const width = output.width;
+      const height = output.height;
       const result = state.scanner.extractPaper(sourceCanvas, Math.round(width), Math.round(height), points);
       if (!result) throw new Error('jscanify không thể hiệu chỉnh phối cảnh tài liệu.');
       return result;
     }
 
-    function warpDocumentPerspective(sourceCanvas, corners) {
+    function warpDocumentPerspective(sourceCanvas, corners, maxEdge) {
       const cv = window.cv;
       const [topLeft, topRight, bottomRight, bottomLeft] = corners;
-      const outputWidth = Math.max(
+      const naturalWidth = Math.max(
         Math.hypot(bottomRight.x - bottomLeft.x, bottomRight.y - bottomLeft.y),
         Math.hypot(topRight.x - topLeft.x, topRight.y - topLeft.y)
       );
-      const outputHeight = Math.max(
+      const naturalHeight = Math.max(
         Math.hypot(topRight.x - bottomRight.x, topRight.y - bottomRight.y),
         Math.hypot(topLeft.x - bottomLeft.x, topLeft.y - bottomLeft.y)
       );
+      const output = fitScanDimensions(naturalWidth, naturalHeight, maxEdge || 3000);
       const warpedCanvas = document.createElement('canvas');
-      warpedCanvas.width = Math.max(1, Math.round(outputWidth));
-      warpedCanvas.height = Math.max(1, Math.round(outputHeight));
+      warpedCanvas.width = output.width;
+      warpedCanvas.height = output.height;
 
       let source;
       let sourcePoints;
@@ -1431,14 +1499,22 @@
       }
     }
 
+    function fitScanDimensions(width, height, maxEdge) {
+      const scale = Math.min(1, (maxEdge || 3000) / Math.max(width, height));
+      return {
+        width: Math.max(1, Math.round(width * scale)),
+        height: Math.max(1, Math.round(height * scale))
+      };
+    }
+
     function prepareScan(sourceCanvas, opts) {
       const bounds = detectDocumentBounds(sourceCanvas);
       const cropCanvas = document.createElement('canvas');
       let cropCtx;
       if (bounds.corners && (bounds.method === 'jscanify' || bounds.method === 'opencv')) {
         const corrected = bounds.method === 'jscanify'
-          ? extractDocumentWithJscanify(sourceCanvas, bounds.corners)
-          : warpDocumentPerspective(sourceCanvas, bounds.corners);
+          ? extractDocumentWithJscanify(sourceCanvas, bounds.corners, opts.targetLongEdge)
+          : warpDocumentPerspective(sourceCanvas, bounds.corners, opts.targetLongEdge);
         cropCanvas.width = corrected.width;
         cropCanvas.height = corrected.height;
         cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
@@ -1494,6 +1570,29 @@
       return pdf.output('datauristring');
     }
 
+    function buildPdfFileName() {
+      const parts = [
+        document.getElementById('tenXaCu').value,
+        document.getElementById('tenXaMoi').value,
+        document.getElementById('hoTenCSD').value,
+        document.getElementById('soHieuToBanDoMoi').value,
+        document.getElementById('soThuTuThuaMoi').value,
+        'GCN'
+      ].map(value => normalizeFileNamePart(value));
+      const timestamp = Date.now();
+      return `${parts.join('_')}_${timestamp}.pdf`;
+    }
+
+    function normalizeFileNamePart(value) {
+      const normalized = String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/gi, 'd')
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+      return normalized || 'ChuaNhap';
+    }
+
     async function saveCurrentRecord() {
       if (!state.documentPages.length && !state.cccdPhotos.length) {
         alert('Bạn cần chụp ít nhất 1 trang tài liệu hoặc CCCD trước khi lưu.');
@@ -1523,7 +1622,7 @@
           rowIndex: state.selectedRowIndex,
           pageCount: state.documentPages.length + state.cccdPhotos.length,
           createdAt: new Date().toISOString(),
-          fileName: `Ho_So_Dat_Dai_${Date.now()}.pdf`,
+          fileName: buildPdfFileName(),
           pdfBase64: buildPdfFromScans()
         };
 
