@@ -96,6 +96,16 @@ function normalizeValue(value) {
   return value === undefined || value === null ? '' : String(value).trim();
 }
 
+function normalizeSearchText(value) {
+  return normalizeValue(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function rowToObject(row, rowIndex) {
   return {
     STT: row[0] || rowIndex,
@@ -124,8 +134,12 @@ function rowToObject(row, rowIndex) {
 }
 
 function searchRecords(payload) {
-  const query = normalizeValue(payload && payload.query ? payload.query : '').toLowerCase();
-  const limit = Number(payload && payload.limit ? payload.limit : 20);
+  const query = normalizeSearchText(payload && payload.query);
+  const name = normalizeSearchText(payload && payload.name);
+  const mapSheet = normalizeSearchText(payload && payload.soHieuToBanDoMoi);
+  const plot = normalizeSearchText(payload && payload.soThuTuThuaMoi);
+  const requestedLimit = Number(payload && payload.limit ? payload.limit : 20);
+  const limit = Math.max(1, Math.min(100, isFinite(requestedLimit) ? requestedLimit : 20));
   const sheet = ensureSheet();
   const lastRow = sheet.getLastRow();
 
@@ -136,27 +150,32 @@ function searchRecords(payload) {
   const values = sheet.getRange(2, 1, lastRow - 1, HEADER_ROW.length).getValues();
   const rows = values.map((row, index) => rowToObject(row, index + 2));
 
-  const filtered = !query
-    ? rows.slice(-limit)
-    : rows.filter((row) => {
-        const haystack = [
-          row['Họ Tên CSD'],
-          row['Số CCCD'],
-          row['Tên huyện'],
-          row['Tên xã mới'],
-          row['Tên xã cũ'],
-          row['Số hiệu tờ bản đồ mới'],
-          row['Số thứ tự thửa mới'],
-          row['Số hiệu tờ bản đồ cũ'],
-          row['Số thứ tự thửa cũ'],
-          row['File GCN'],
-          row['File CCCD'],
-          row['Loại mục đích sử dụng'],
-          row['Diện tích']
-        ].join(' ').toLowerCase();
+  const filtered = rows.filter((row) => {
+    const normalizedName = normalizeSearchText(row['Họ Tên CSD']);
+    const normalizedMapSheet = normalizeSearchText(row['Số hiệu tờ bản đồ mới']);
+    const normalizedPlot = normalizeSearchText(row['Số thứ tự thửa mới']);
+    const haystack = normalizeSearchText([
+      row['Họ Tên CSD'],
+      row['Số CCCD'],
+      row['Tên huyện'],
+      row['Tên xã mới'],
+      row['Tên xã cũ'],
+      row['Số hiệu tờ bản đồ mới'],
+      row['Số thứ tự thửa mới'],
+      row['Số hiệu tờ bản đồ cũ'],
+      row['Số thứ tự thửa cũ'],
+      row['Ấp'],
+      row['File GCN'],
+      row['File CCCD'],
+      row['Loại mục đích sử dụng'],
+      row['Diện tích']
+    ].join(' '));
 
-        return haystack.indexOf(query) >= 0;
-      }).slice(0, limit);
+    return (!query || haystack.indexOf(query) >= 0) &&
+      (!name || normalizedName.indexOf(name) >= 0) &&
+      (!mapSheet || normalizedMapSheet.indexOf(mapSheet) >= 0) &&
+      (!plot || normalizedPlot.indexOf(plot) >= 0);
+  }).slice(-limit).reverse();
 
   return { success: true, count: filtered.length, data: filtered };
 }

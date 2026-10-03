@@ -96,6 +96,8 @@
 
     .field textarea { min-height: 88px; resize: vertical; }
 
+    .search-fields { display: grid; gap: 10px; margin-top: 10px; }
+
     .grid-2 {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -156,10 +158,21 @@
 
     .overlay {
       position: absolute;
-      inset: 18px;
+      left: 9%;
+      top: 9%;
+      width: 82%;
+      height: 82%;
       border: 2px dashed rgba(255,255,255,.8);
       border-radius: 18px;
       pointer-events: none;
+      transition: left .12s linear, top .12s linear, width .12s linear, height .12s linear, border-color .12s linear;
+    }
+
+    .overlay.detected {
+      border-color: #31d0aa;
+      border-style: solid;
+      border-radius: 5px;
+      box-shadow: 0 0 0 999px rgba(5, 20, 18, .12);
     }
 
     .mini-grid {
@@ -262,6 +275,22 @@
         <div class="field">
           <label>Từ khóa</label>
           <input id="searchQuery" type="text" placeholder="Tên, CCCD, thửa, tờ bản đồ, xã..." />
+        </div>
+        <div class="search-fields">
+          <div class="field">
+            <label>Tên chủ sử dụng</label>
+            <input id="searchName" type="text" placeholder="Có thể nhập tên không dấu" />
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label>Số hiệu tờ bản đồ mới</label>
+              <input id="searchMapSheet" type="text" inputmode="text" placeholder="Số tờ mới" />
+            </div>
+            <div class="field">
+              <label>Số thứ tự thửa mới</label>
+              <input id="searchPlot" type="text" inputmode="text" placeholder="Số thửa mới" />
+            </div>
+          </div>
         </div>
         <div id="searchResults" class="search-result"></div>
       </div>
@@ -403,7 +432,9 @@
     const state = {
       stream: null,
       documentPages: [],
-      cccdPhotos: []
+      cccdPhotos: [],
+      detectionFrame: 0,
+      lastDetectionAt: 0
     };
 
     function setStatus(message, tone = 'normal') {
@@ -458,9 +489,12 @@
 
     async function searchRecords() {
       const query = document.getElementById('searchQuery').value.trim();
+      const name = document.getElementById('searchName').value.trim();
+      const soHieuToBanDoMoi = document.getElementById('searchMapSheet').value.trim();
+      const soThuTuThuaMoi = document.getElementById('searchPlot').value.trim();
       try {
         setStatus('Đang tìm kiếm...', 'normal');
-        const data = await apiRequest('SEARCH', { query, limit: 20 });
+        const data = await apiRequest('SEARCH', { query, name, soHieuToBanDoMoi, soThuTuThuaMoi, limit: 20 });
         renderSearchResults(data.data || []);
         setStatus(data.data && data.data.length ? 'Tìm thấy dữ liệu' : 'Không có dữ liệu', data.data && data.data.length ? 'success' : 'normal');
       } catch (error) {
@@ -533,7 +567,7 @@
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1920 }, frameRate: { ideal: 30, max: 30 } },
           audio: false
         });
 
@@ -542,10 +576,23 @@
         video.srcObject = stream;
         await video.play();
 
+        const track = stream.getVideoTracks()[0];
+        if (track && track.applyConstraints) {
+          try {
+            const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+            if (!capabilities.focusMode || capabilities.focusMode.includes('continuous')) {
+              await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+            }
+          } catch (focusError) {
+            console.info('Camera không hỗ trợ lấy nét liên tục qua trình duyệt.', focusError);
+          }
+        }
+
         document.getElementById('btnCapturePage').disabled = false;
         document.getElementById('btnCaptureFront').disabled = false;
         document.getElementById('btnCaptureBack').disabled = false;
 
+        scanCameraPreview();
         setStatus('Camera sẵn sàng', 'success');
       } catch (error) {
         alert('Không thể mở camera: ' + error.message);
@@ -553,7 +600,7 @@
       }
     }
 
-    function capturePage(type) {
+    async function capturePage(type) {
       const video = document.getElementById('video');
       if (!video || !video.videoWidth) {
         alert('Camera chưa sẵn sàng.');
@@ -561,11 +608,22 @@
       }
 
       const canvas = document.getElementById('scanCanvas');
-      canvas.width = video.videoWidth || 1280;
-      canvas.height = video.videoHeight || 720;
+      const track = state.stream && state.stream.getVideoTracks()[0];
+      let photoBitmap = null;
+      if (track && 'ImageCapture' in window) {
+        try {
+          const photo = await new ImageCapture(track).takePhoto();
+          photoBitmap = await createImageBitmap(photo);
+        } catch (captureError) {
+          console.info('Ảnh tĩnh độ phân giải cao không khả dụng, dùng khung camera hiện tại.', captureError);
+        }
+      }
 
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const source = photoBitmap || video;
+      canvas.width = source.width || source.videoWidth || 1280;
+      canvas.height = source.height || source.videoHeight || 720;
+      canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
+      if (photoBitmap && photoBitmap.close) photoBitmap.close();
 
       const scan = prepareScan(canvas, { targetLongEdge: 1600 });
       const processed = scan.canvas;
@@ -586,6 +644,50 @@
 
       updateCccdCount();
       setStatus(scan.detected ? 'Đã nhận diện và cắt tài liệu' : 'Đã chụp ảnh (không nhận diện được mép)', scan.detected ? 'success' : 'normal');
+    }
+
+    function scanCameraPreview() {
+      if (!state.stream) return;
+      state.detectionFrame = requestAnimationFrame(scanCameraPreview);
+
+      const now = performance.now();
+      if (now - state.lastDetectionAt < 300) return;
+      state.lastDetectionAt = now;
+
+      const video = document.getElementById('video');
+      if (!video.videoWidth || !video.videoHeight) return;
+
+      const previewCanvas = document.getElementById('scanCanvas');
+      const scale = Math.min(1, 320 / Math.max(video.videoWidth, video.videoHeight));
+      previewCanvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+      previewCanvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+      previewCanvas.getContext('2d').drawImage(video, 0, 0, previewCanvas.width, previewCanvas.height);
+
+      const bounds = detectDocumentBounds(previewCanvas);
+      const overlay = document.querySelector('.overlay');
+      if (!bounds.detected) {
+        overlay.classList.remove('detected');
+        overlay.style.left = '9%';
+        overlay.style.top = '9%';
+        overlay.style.width = '82%';
+        overlay.style.height = '82%';
+        return;
+      }
+
+      const shell = document.querySelector('.camera-shell');
+      const coverScale = Math.max(shell.clientWidth / video.videoWidth, shell.clientHeight / video.videoHeight);
+      const offsetX = (shell.clientWidth - video.videoWidth * coverScale) / 2;
+      const offsetY = (shell.clientHeight - video.videoHeight * coverScale) / 2;
+      const left = offsetX + bounds.x / previewCanvas.width * video.videoWidth * coverScale;
+      const top = offsetY + bounds.y / previewCanvas.height * video.videoHeight * coverScale;
+      const width = bounds.width / previewCanvas.width * video.videoWidth * coverScale;
+      const height = bounds.height / previewCanvas.height * video.videoHeight * coverScale;
+
+      overlay.classList.add('detected');
+      overlay.style.left = `${Math.max(0, left)}px`;
+      overlay.style.top = `${Math.max(0, top)}px`;
+      overlay.style.width = `${Math.min(shell.clientWidth - Math.max(0, left), width)}px`;
+      overlay.style.height = `${Math.min(shell.clientHeight - Math.max(0, top), height)}px`;
     }
 
     function updateCccdCount() {
