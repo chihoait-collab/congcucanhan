@@ -187,13 +187,21 @@ function listRecords(payload) {
 
 function saveScanRecord(payload) {
   const sheet = ensureSheet();
-  const folder = ensureFolder();
   const fileName = normalizeValue(payload && payload.fileName ? payload.fileName : `Ho_So_Dat_Dai_${Date.now()}.pdf`);
   const rowIndex = Number(payload && payload.rowIndex ? payload.rowIndex : 0);
   const isUpdate = rowIndex >= 2 && rowIndex <= sheet.getLastRow();
   const existingRow = isUpdate ? sheet.getRange(rowIndex, 1, 1, HEADER_ROW.length).getValues()[0] : [];
   const pdfGCNBase64 = normalizeValue(payload && (payload.pdfGCNBase64 || payload.pdfBase64));
   const pdfCCCDBase64 = normalizeValue(payload && payload.pdfCCCDBase64);
+  const driveWarnings = [];
+  let folder = null;
+  if (pdfGCNBase64 || pdfCCCDBase64) {
+    try {
+      folder = ensureFolder();
+    } catch (error) {
+      driveWarnings.push('Không tạo/mở được thư mục Drive: ' + error.toString());
+    }
+  }
 
   const record = {
     STT: sheet.getLastRow(),
@@ -211,7 +219,7 @@ function saveScanRecord(payload) {
     'Thế chấp': normalizeValue(payload && payload.theChap),
     'File GCN': normalizeValue(payload && payload.fileGCN) || (isUpdate ? normalizeValue(existingRow[13]) : ''),
     'File CCCD': normalizeValue(payload && payload.fileCCCD) || (isUpdate ? normalizeValue(existingRow[14]) : ''),
-    'Số CCCD': normalizeValue(payload && payload.soCCCD),
+    'Số CCCD': normalizeValue(payload && payload.soCCCD) || (isUpdate ? normalizeValue(existingRow[15]) : ''),
     fileName,
     fileId: isUpdate ? normalizeValue(existingRow[17]) : '',
     fileUrl: isUpdate ? normalizeValue(existingRow[18]) : '',
@@ -221,17 +229,28 @@ function saveScanRecord(payload) {
   };
 
   const baseName = fileName.replace(/\.pdf$/i, '');
-  if (pdfGCNBase64) {
-    const saved = savePdfToDrive(folder, pdfGCNBase64, `${baseName}_GCN.pdf`);
-    record['File GCN'] = saved.fileUrl;
-    if (!record.fileUrl) record.fileUrl = saved.fileUrl || '';
-    if (!record.fileId) record.fileId = saved.fileId || '';
+  const cccdFileName = normalizeValue(payload && payload.fileNameCCCD) || `${baseName.replace(/_GCN_\d+$/i, '')}_CCCD_${Date.now()}.pdf`;
+  if (pdfGCNBase64 && folder) {
+    try {
+      const saved = savePdfToDrive(folder, pdfGCNBase64, fileName);
+      if (saved.sharingWarning) driveWarnings.push(saved.sharingWarning);
+      record['File GCN'] = saved.fileUrl;
+      if (!record.fileUrl) record.fileUrl = saved.fileUrl || '';
+      if (!record.fileId) record.fileId = saved.fileId || '';
+    } catch (error) {
+      driveWarnings.push('Không lưu được PDF GCN lên Drive: ' + error.toString());
+    }
   }
-  if (pdfCCCDBase64) {
-    const saved = savePdfToDrive(folder, pdfCCCDBase64, `${baseName}_CCCD.pdf`);
-    record['File CCCD'] = saved.fileUrl;
-    if (!record.fileUrl) record.fileUrl = saved.fileUrl || '';
-    if (!record.fileId) record.fileId = saved.fileId || '';
+  if (pdfCCCDBase64 && folder) {
+    try {
+      const saved = savePdfToDrive(folder, pdfCCCDBase64, cccdFileName);
+      if (saved.sharingWarning) driveWarnings.push(saved.sharingWarning);
+      record['File CCCD'] = saved.fileUrl;
+      if (!record.fileUrl) record.fileUrl = saved.fileUrl || '';
+      if (!record.fileId) record.fileId = saved.fileId || '';
+    } catch (error) {
+      driveWarnings.push('Không lưu được PDF CCCD lên Drive: ' + error.toString());
+    }
   }
 
   let row = [
@@ -273,10 +292,12 @@ function saveScanRecord(payload) {
     message: isUpdate
       ? 'Dữ liệu hồ sơ đã được cập nhật.'
       : 'Dữ liệu đã được lưu vào Google Sheet.',
+    warning: driveWarnings.join('\n'),
     fileId: record.fileId,
     fileUrl: record.fileUrl,
     fileGCN: record['File GCN'],
     fileCCCD: record['File CCCD'],
+    soCCCD: record['Số CCCD'],
     updated: isUpdate,
     rowIndex: isUpdate ? rowIndex : sheet.getLastRow(),
     rowCount: sheet.getLastRow(),
@@ -295,11 +316,18 @@ function savePdfToDrive(folder, pdfBase64, fileName) {
 
     const blob = Utilities.newBlob(Utilities.base64Decode(clean), 'application/pdf', fileName);
     const file = folder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    let sharingWarning = '';
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (sharingError) {
+      sharingWarning = 'Tệp đã lưu nhưng không đổi được quyền chia sẻ: ' + sharingError.toString();
+      console.warn(sharingWarning);
+    }
 
     return {
       fileId: file.getId(),
-      fileUrl: file.getUrl()
+      fileUrl: file.getUrl(),
+      sharingWarning: sharingWarning
     };
   } catch (error) {
     throw new Error('Lỗi lưu PDF lên Drive: ' + error.toString());

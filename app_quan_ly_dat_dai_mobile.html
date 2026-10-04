@@ -1716,16 +1716,21 @@
     }
 
     function buildPdfFileName() {
-      const parts = [
+      return `${buildRecordFileNameParts().join('_')}_GCN_${Date.now()}.pdf`;
+    }
+
+    function buildCccdPdfFileName() {
+      return `${buildRecordFileNameParts().join('_')}_CCCD_${Date.now()}.pdf`;
+    }
+
+    function buildRecordFileNameParts() {
+      return [
         document.getElementById('tenXaCu').value,
         document.getElementById('tenXaMoi').value,
         document.getElementById('hoTenCSD').value,
         document.getElementById('soHieuToBanDoMoi').value,
         document.getElementById('soThuTuThuaMoi').value,
-        'GCN'
       ].map(value => normalizeFileNamePart(value));
-      const timestamp = Date.now();
-      return `${parts.join('_')}_${timestamp}.pdf`;
     }
 
     function normalizeFileNamePart(value) {
@@ -1768,17 +1773,19 @@
           pageCount: state.documentPages.length + state.cccdPhotos.length,
           createdAt: new Date().toISOString(),
           fileName: buildPdfFileName(),
+          fileNameCCCD: buildCccdPdfFileName(),
           pdfGCNBase64: state.documentPages.length ? buildPdfFromScans(state.documentPages) : '',
           pdfCCCDBase64: state.cccdPhotos.length ? buildPdfFromScans(state.cccdPhotos) : ''
         };
 
         const result = await apiRequest('SAVE_SCAN', payload);
+        if (result.soCCCD) document.getElementById('soCCCD').value = result.soCCCD;
 
         if (result.fileGCN || result.fileCCCD || result.fileId) {
           if (result.fileGCN) document.getElementById('fileGCN').value = result.fileGCN;
           if (result.fileCCCD) document.getElementById('fileCCCD').value = result.fileCCCD;
           renderRecordFiles({ fileGCN: result.fileGCN, fileCCCD: result.fileCCCD, fileUrl: result.fileUrl });
-          alert(`${result.message || 'Lưu thành công.'}\nPDF GCN và CCCD (nếu có) đã lưu riêng trên cùng hồ sơ.`);
+          alert(`${result.message || 'Lưu thành công.'}\nPDF GCN và CCCD (nếu có) đã lưu riêng trên cùng hồ sơ.${result.warning ? `\n${result.warning}` : ''}`);
         } else {
           alert(result.message || 'Lưu thông tin lên Google Sheet thành công.');
         }
