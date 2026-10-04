@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Công cụ gộp file Excel nâng cao</title>
+    <!-- Thư viện SheetJS -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f4f6f9; padding: 40px 20px; display: flex; justify-content: center; }
+        .container { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); width: 100%; max-width: 720px; }
+        h2 { text-align: center; color: #2c3e50; margin-bottom: 20px; }
+        
+        .drop-zone { border: 2px dashed #3498db; border-radius: 8px; padding: 30px; text-align: center; background: #ebf5fb; cursor: pointer; transition: 0.3s; }
+        .drop-zone:hover, .drop-zone.dragover { background: #d6eaf8; border-color: #2980b9; }
+        input[type="file"] { display: none; }
+        
+        .config-group { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 20px; border: 1px solid #e9ecef; }
+        .config-item { margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; }
+        .config-item:last-child { margin-bottom: 0; }
+        label { font-size: 14px; font-weight: 600; color: #34495e; }
+        select, input[type="number"] { padding: 8px 12px; border: 1px solid #ced4da; border-radius: 6px; font-size: 14px; }
+        
+        .checkbox-item { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; margin-top: 5px; }
+        
+        .btn { display: block; width: 100%; background: #27ae60; color: white; border: none; padding: 12px; margin-top: 20px; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn:hover { background: #219150; }
+        .btn:disabled { background: #bdc3c7; cursor: not-allowed; }
+        
+        #file-list { margin-top: 15px; font-size: 14px; color: #555; max-height: 180px; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; padding: 5px; }
+        .file-item { padding: 8px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+        .file-item:last-child { border-bottom: none; }
+        .badge-master { background: #e74c3c; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        
+        #status { margin-top: 15px; font-weight: bold; text-align: center; color: #2980b9; }
+        
+        #report { margin-top: 20px; background: #eef9f1; border: 1px solid #c3e6cb; border-radius: 8px; padding: 15px; display: none; }
+        #report h3 { margin-top: 0; color: #155724; font-size: 16px; text-align: center; }
+        .report-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        .report-table th, .report-table td { border: 1px solid #c3e6cb; padding: 6px 10px; text-align: left; }
+        .report-table th { background: #d4edda; color: #155724; }
+        .report-table tr.total-row { font-weight: bold; background: #c3e6cb; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Công Cụ Gộp File Excel</h2>
+    
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('excelFiles').click()">
+        <p style="margin: 0; font-size: 16px;"><strong>Nhấp vào đây</strong> hoặc kéo thả các file Excel (.xlsx, .xls) vào đây</p>
+    </div>
+    <input type="file" id="excelFiles" multiple accept=".xlsx, .xls" onchange="xuLyFiles(this.files)">
+
+    <div id="file-list"></div>
+
+    <div class="config-group">
+        <div class="config-item">
+            <label for="masterFileSelect">📌 Chọn File Làm Chuẩn (Giữ Nguyên Định Dạng & Tiêu Đề):</label>
+            <select id="masterFileSelect" onchange="capNhatDanhSachUI()"></select>
+        </div>
+        <div class="config-item">
+            <label for="startRowInput">🔢 Số dòng tiêu đề cần bỏ qua (ở các file phụ):</label>
+            <input type="number" id="startRowInput" value="1" min="0" placeholder="Ví dụ: Tiêu đề 1 dòng thì nhập 1">
+            <small style="color: #7f8c8d;">Ví dụ: Nhập 1 thì dữ liệu file phụ sẽ được lấy từ dòng số 2 trở đi.</small>
+        </div>
+        <div class="config-item">
+            <label class="checkbox-item">
+                <input type="checkbox" id="skipEmptyRows" checked>
+                <span>Tự động bỏ qua dòng trống không có dữ liệu</span>
+            </label>
+        </div>
+    </div>
+
+    <button id="btnMerge" class="btn" onclick="gopFileExcel()" disabled>Bắt đầu gộp và Tải về</button>
+    <div id="status"></div>
+
+    <div id="report">
+        <h3>📊 Báo Cáo Kiểm Tra Dòng Dữ Liệu</h3>
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Tên File</th>
+                    <th>Vai Trò</th>
+                    <th style="text-align: right;">Số Dòng Đã Thêm</th>
+                </tr>
+            </thead>
+            <tbody id="report-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    let filesToProcess = [];
+
+    const dropZone = document.getElementById('dropZone');
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
+    });
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+    });
+    dropZone.addEventListener('drop', e => {
+        const dt = e.dataTransfer;
+        xuLyFiles(dt.files);
+    });
+
+    function xuLyFiles(files) {
+        const masterSelect = document.getElementById('masterFileSelect');
+        filesToProcess = Array.from(files).filter(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls'));
+        
+        masterSelect.innerHTML = '';
+        document.getElementById('report').style.display = 'none';
+
+        if (filesToProcess.length > 0) {
+            filesToProcess.forEach((file, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.text = file.name;
+                masterSelect.appendChild(option);
+            });
+            capNhatDanhSachUI();
+        } else {
+            document.getElementById('file-list').innerHTML = '';
+            document.getElementById('btnMerge').disabled = true;
+        }
+    }
+
+    function capNhatDanhSachUI() {
+        const listContainer = document.getElementById('file-list');
+        const btnMerge = document.getElementById('btnMerge');
+        const masterIndex = parseInt(document.getElementById('masterFileSelect').value) || 0;
+
+        listContainer.innerHTML = `<div style="padding: 6px; font-weight: bold; background: #eee;">Đã chọn ${filesToProcess.length} file:</div>`;
+        
+        filesToProcess.forEach((f, idx) => {
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            
+            if (idx === masterIndex) {
+                item.innerHTML = `<span>📄 <b>${f.name}</b></span> <span class="badge-master">FILE GỐC</span>`;
+                item.style.backgroundColor = '#fdf2e9';
+            } else {
+                item.innerHTML = `<span>📄 ${f.name}</span>`;
+            }
+            
+            listContainer.appendChild(item);
+        });
+
+        btnMerge.disabled = filesToProcess.length === 0;
+    }
+
+    function isRowEmpty(row) {
+        if (!row || row.length === 0) return true;
+        return row.every(val => val === null || val === undefined || String(val).trim() === '');
+    }
+
+    // 🛠️ HÀM CỐT LÕI: TÍNH LẠI PHẠM VI DỮ LIỆU ĐỂ TRÁNH LỖI MẤT DÒNG QUÁ DÒNG 9
+    function recalculateSheetRange(ws) {
+        let maxRow = 0;
+        let maxCol = 0;
+        
+        // Quét qua tất cả các ô có chứa dữ liệu thực tế
+        Object.keys(ws).forEach(key => {
+            if (key.startsWith('!')) return; // Bỏ qua các key hệ thống
+            const cell = XLSX.utils.decode_cell(key);
+            if (cell.r > maxRow) maxRow = cell.r;
+            if (cell.c > maxCol) maxCol = cell.c;
+        });
+
+        // Cập nhật lại phạm vi chuẩn xác nhất cho Sheet
+        ws['!ref'] = XLSX.utils.encode_range({
+            s: { r: 0, c: 0 },
+            e: { r: maxRow, c: maxCol }
+        });
+    }
+
+    async function gopFileExcel() {
+        const status = document.getElementById('status');
+        const reportDiv = document.getElementById('report');
+        const reportBody = document.getElementById('report-body');
+        const masterIndex = parseInt(document.getElementById('masterFileSelect').value);
+        const headerRows = parseInt(document.getElementById('startRowInput').value) || 0;
+        const skipEmpty = document.getElementById('skipEmptyRows').checked;
+
+        if (isNaN(masterIndex) || !filesToProcess[masterIndex]) {
+            alert("Vui lòng chọn File làm gốc chuẩn!");
+            return;
+        }
+
+        status.innerText = "⏳ Đang đọc File Gốc...";
+        reportDiv.style.display = 'none';
+        reportBody.innerHTML = '';
+
+        try {
+            // 1. Đọc File Gốc (Master File)
+            const masterFile = filesToProcess[masterIndex];
+            const masterBuffer = await masterFile.arrayBuffer();
+            
+            const masterWorkbook = XLSX.read(masterBuffer, { type: 'array', cellStyles: true, cellFormulas: true });
+            const masterSheetName = masterWorkbook.SheetNames[0];
+            const masterSheet = masterWorkbook.Sheets[masterSheetName];
+
+            // 🔧 Tính toán lại phạm vi dữ liệu cho File Gốc
+            recalculateSheetRange(masterSheet);
+
+            const masterJson = XLSX.utils.sheet_to_json(masterSheet, { header: 1, defval: "" });
+            let initialMasterRowCount = masterJson.length;
+
+            let reportData = [];
+            reportData.push({
+                name: masterFile.name,
+                role: 'File Gốc',
+                rowsAdded: initialMasterRowCount
+            });
+
+            // 2. Lần lượt đọc và gộp dữ liệu từ các file phụ
+            for (let i = 0; i < filesToProcess.length; i++) {
+                if (i === masterIndex) continue;
+
+                status.innerText = `⏳ Đang gộp dữ liệu từ: ${filesToProcess[i].name}...`;
+
+                const fileBuffer = await filesToProcess[i].arrayBuffer();
+                const workbook = XLSX.read(fileBuffer, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+
+                // 🔧 Tính toán lại phạm vi dữ liệu cho từng File Phụ
+                recalculateSheetRange(worksheet);
+
+                // Đọc toàn bộ dữ liệu file phụ dạng Array of Arrays
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+                // Bỏ bớt số dòng tiêu đề theo cài đặt
+                let rawRows = jsonData.slice(headerRows);
+
+                // Lọc bỏ dòng trống nếu bật tùy chọn
+                let validRows = rawRows;
+                if (skipEmpty) {
+                    validRows = rawRows.filter(row => !isRowEmpty(row));
+                }
+
+                if (validRows.length > 0) {
+                    // Thêm dữ liệu vào sheet gốc
+                    XLSX.utils.sheet_add_aoa(masterSheet, validRows, { origin: -1 });
+                }
+
+                reportData.push({
+                    name: filesToProcess[i].name,
+                    role: 'File Phụ',
+                    rowsAdded: validRows.length
+                });
+            }
+
+            // 3. Cập nhật lại phạm vi lần cuối sau khi đã thêm toàn bộ dữ liệu mới
+            recalculateSheetRange(masterSheet);
+            const updatedJson = XLSX.utils.sheet_to_json(masterSheet, { header: 1, defval: "" });
+            const totalRows = updatedJson.length;
+
+            // 4. Xuất file hoàn chỉnh
+            status.innerText = "⏳ Đang tạo file gộp...";
+            XLSX.writeFile(masterWorkbook, `File_Gop_${new Date().toISOString().slice(0,10)}.xlsx`);
+            
+            status.innerText = "✅ Gộp file thành công!";
+
+            // 5. Hiển thị bảng Thống Kê Số Dòng
+            reportData.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.name}</td>
+                    <td>${item.role}</td>
+                    <td style="text-align: right;"><b>${item.rowsAdded.toLocaleString()}</b> dòng</td>
+                `;
+                reportBody.appendChild(tr);
+            });
+
+            const totalTr = document.createElement('tr');
+            totalTr.className = 'total-row';
+            totalTr.innerHTML = `
+                <td colspan="2"><b>TỔNG SỐ DÒNG SAU KHI GỘP</b></td>
+                <td style="text-align: right;"><b>${totalRows.toLocaleString()}</b> dòng</td>
+            `;
+            reportBody.appendChild(totalTr);
+
+            reportDiv.style.display = 'block';
+
+        } catch (error) {
+            console.error(error);
+            status.innerText = "❌ Có lỗi xảy ra trong quá trình gộp file!";
+        }
+    }
+</script>
+
+</body>
+</html>

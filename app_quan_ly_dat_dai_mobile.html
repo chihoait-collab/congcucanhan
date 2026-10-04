@@ -399,9 +399,15 @@
         </div>
 
         <div class="field mt-8">
-          <label for="imageFiles">Ảnh kiểm tra hoặc ảnh tài liệu có sẵn</label>
+          <label for="imageUploadType">Loại ảnh có sẵn</label>
+          <select id="imageUploadType">
+            <option value="document">Tài liệu GCN</option>
+            <option value="cccd-front">CCCD mặt trước</option>
+            <option value="cccd-back">CCCD mặt sau</option>
+          </select>
+          <label for="imageFiles">Chọn ảnh chụp sẵn</label>
           <input id="imageFiles" type="file" accept="image/*" multiple onchange="processImageFiles(this.files)" />
-          <div class="helper">Ảnh được nhận diện, cắt góc và thêm vào danh sách trang tài liệu như ảnh chụp.</div>
+          <div class="helper">Có thể chọn nhiều ảnh cùng loại. Ảnh CCCD sẽ được lưu trong PDF CCCD riêng.</div>
         </div>
 
         <div class="mini-grid mt-8">
@@ -982,9 +988,10 @@
             const pendingItem = state.pendingRetakeId
               ? [...state.documentPages, ...state.cccdPhotos].find(existing => existing.id === state.pendingRetakeId)
               : null;
+            const itemType = pendingItem ? pendingItem.type : document.getElementById('imageUploadType').value;
             const item = {
               id: state.pendingRetakeId || createScanId(),
-              type: pendingItem ? pendingItem.type : 'document',
+              type: itemType,
               canvas: scan.canvas,
               originalCanvas: sourceCanvas,
               fileName: file.name,
@@ -997,6 +1004,7 @@
             } else {
               addScanItem(item);
             }
+            if (itemType === 'cccd-front') autoReadCccdNumber(item);
           } finally {
             if (sourceBitmap.close) sourceBitmap.close();
           }
