@@ -6,6 +6,7 @@
   <title>Quản Lý Đất Đai Mobile</title>
   <link rel="icon" href="data:," />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="./opencv.js"></script>
   <script src="./jscanify.min.js"></script>
   <style>
@@ -292,6 +293,13 @@
       line-height: 1.5;
     }
 
+    .result-files, .record-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+    .file-badge { display: inline-flex; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: #f8fafc; color: #334155; font-size: 11px; text-decoration: none; }
+    .file-badge.available { border-color: #86efac; background: #f0fdf4; color: #166534; }
+    .file-badge.missing { color: var(--muted); }
+    details.api-settings > summary { cursor: pointer; font-weight: 700; font-size: 15px; }
+    details.api-settings[open] > summary { margin-bottom: 14px; }
+
     .mt-8 { margin-top: 8px; }
 
     @media (max-width: 640px) {
@@ -310,15 +318,16 @@
 
     <div class="layout">
       <div class="card section">
-        <h3>1) Cấu hình API Google Apps Script</h3>
-        <div class="field">
-          <label>Web App URL</label>
-          <input id="webAppUrl" type="text" value="https://script.google.com/macros/s/AKfycby1nGc2_GmnJwmXjDMZUIMK2NQ43mB1xlh3VI06OUorJmOPs5hN-dFTDQZzWZabR4LB/exec" placeholder="https://script.google.com/macros/s/.../exec" />
-        </div>
-        <div class="footer-actions mt-8">
-          <button class="secondary" type="button" onclick="testApiConnection()">Kiểm tra API</button>
-          <button class="primary" type="button" onclick="searchRecords()">Tìm kiếm hồ sơ</button>
-        </div>
+        <details class="api-settings">
+          <summary>Cấu hình kết nối API</summary>
+          <div class="field">
+            <label for="webAppUrl">Web App URL</label>
+            <input id="webAppUrl" type="text" value="https://script.google.com/macros/s/AKfycby1nGc2_GmnJwmXjDMZUIMK2NQ43mB1xlh3VI06OUorJmOPs5hN-dFTDQZzWZabR4LB/exec" placeholder="https://script.google.com/macros/s/.../exec" onchange="saveApiUrl()" />
+          </div>
+          <div class="footer-actions mt-8">
+            <button class="secondary" type="button" onclick="testApiConnection()">Kiểm tra API</button>
+          </div>
+        </details>
       </div>
 
       <div class="card section">
@@ -342,6 +351,9 @@
               <input id="searchPlot" type="text" inputmode="text" placeholder="Số thửa mới" />
             </div>
           </div>
+        </div>
+        <div class="mt-8">
+          <button class="primary" type="button" onclick="searchRecords()">Tìm kiếm hồ sơ</button>
         </div>
         <div id="searchResults" class="search-result"></div>
       </div>
@@ -487,6 +499,7 @@
             <label>Link File CCCD</label>
             <input id="fileCCCD" type="text" placeholder="https://drive.google.com/... hoặc tên file" />
           </div>
+          <div id="recordFilesPreview" class="record-files" aria-live="polite"></div>
 
           <div class="field">
             <label>Số CCCD</label>
@@ -501,7 +514,7 @@
 
         <div class="footer-actions mt-8">
           <button class="secondary" type="button" onclick="clearForm()">Xóa form</button>
-          <button class="success" id="btnSaveRecord" type="button" onclick="saveCurrentRecord()">Lưu PDF vào Drive + Sheet</button>
+          <button class="success" id="btnSaveRecord" type="button" onclick="saveCurrentRecord()">Lưu PDF GCN + CCCD</button>
         </div>
       </div>
     </div>
@@ -535,6 +548,14 @@
       return false;
     });
 
+    let cccdOcrWorker = null;
+    const apiUrlInput = document.getElementById('webAppUrl');
+    apiUrlInput.value = localStorage.getItem('landApiUrl') || apiUrlInput.value;
+
+    function saveApiUrl() {
+      localStorage.setItem('landApiUrl', document.getElementById('webAppUrl').value.trim());
+    }
+
     document.getElementById('scanMode').value = ['opencv', 'fallback', 'all'].includes(state.scanMode) ? state.scanMode : 'opencv';
 
     function setScanMode(mode) {
@@ -554,7 +575,9 @@
     }
 
     function getApiUrl() {
-      return document.getElementById('webAppUrl').value.trim();
+      const url = document.getElementById('webAppUrl').value.trim();
+      saveApiUrl();
+      return url;
     }
 
     function safeJsonParse(text) {
@@ -630,6 +653,7 @@
             <div>
               <strong>${escapeHtml(name)}</strong><br>
               <span class="result-meta">CCCD: ${escapeHtml(cccd)} | Tờ: ${escapeHtml(toSo)} | Thửa: ${escapeHtml(thua)} | Xã: ${escapeHtml(xa)}</span>
+              <div class="result-files">${renderFileBadges(item)}</div>
             </div>
             <button class="secondary" type="button" onclick='fillFormFromResult(${JSON.stringify(item)})'>Chọn</button>
           </div>
@@ -662,10 +686,12 @@
         if (node) node.value = value;
       });
 
+      renderRecordFiles(item);
+
       state.selectedRowIndex = Number(item.rowIndex) || null;
       document.getElementById('btnSaveRecord').textContent = state.selectedRowIndex
         ? 'Cập nhật dòng đã chọn'
-        : 'Lưu PDF vào Drive + Sheet';
+        : 'Lưu PDF GCN + CCCD';
       setStatus(state.selectedRowIndex ? `Đang sửa dòng ${state.selectedRowIndex}` : 'Đã tải hồ sơ', 'success');
       document.getElementById('btnSaveRecord').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -880,11 +906,58 @@
         replaceScanItem(item);
         state.pendingRetakeId = null;
         setStatus(scan.detected ? 'Đã chụp lại và thay ảnh tại vị trí cũ' : 'Đã thay ảnh tại vị trí cũ (mép chưa nhận diện)', scan.detected ? 'success' : 'normal');
+        if (captureType === 'cccd-front') autoReadCccdNumber(item);
         return;
       }
 
       addScanItem(item);
       setStatus(scan.detected ? 'Đã nhận diện và cắt tài liệu' : 'Đã chụp ảnh (không nhận diện được mép)', scan.detected ? 'success' : 'normal');
+      if (captureType === 'cccd-front') autoReadCccdNumber(item);
+    }
+
+    async function autoReadCccdNumber(item) {
+      try {
+        if (!window.Tesseract) throw new Error('Thư viện OCR chưa tải được.');
+        setStatus('Đang đọc số CCCD trên thiết bị...', 'normal');
+        if (!cccdOcrWorker) cccdOcrWorker = await window.Tesseract.createWorker('eng');
+        const result = await cccdOcrWorker.recognize(item.canvas);
+        const candidates = String(result.data.text || '').match(/(?:\d[\s.-]*){12}/g) || [];
+        const number = candidates.map(value => value.replace(/\D/g, '')).find(value => value.length === 12);
+        if (number) {
+          document.getElementById('soCCCD').value = number;
+          setStatus('Đã tự điền số CCCD', 'success');
+        } else {
+          setStatus('Chưa đọc được số CCCD; vui lòng nhập kiểm tra', 'normal');
+        }
+      } catch (error) {
+        console.info('Không thể nhận dạng số CCCD tự động.', error);
+        setStatus('OCR CCCD không khả dụng; vui lòng nhập số thủ công', 'normal');
+      }
+    }
+
+    function renderFileBadges(item) {
+      const gcn = item['File GCN'] || item.fileGCN || '';
+      const cccd = item['File CCCD'] || item.fileCCCD || '';
+      const legacy = item.fileUrl || '';
+      const knownFiles = [gcn, cccd].map(value => String(value || '').trim());
+      const entries = [
+        ['GCN', gcn],
+        ['CCCD', cccd],
+        ...(legacy && !knownFiles.includes(String(legacy).trim()) ? [['PDF cũ', legacy]] : []),
+        ...(!gcn && !cccd && !legacy ? [['GCN', ''], ['CCCD', '']] : [])
+      ];
+      return entries.map(([label, value]) => {
+        if (!value) return `<span class="file-badge missing">${label}: Chưa có</span>`;
+        const url = /^https?:\/\//i.test(String(value).trim()) ? escapeHtml(String(value).trim()) : '';
+        return url
+          ? `<a class="file-badge available" href="${url}" target="_blank" rel="noopener">Có file ${label} ↗</a>`
+          : `<span class="file-badge available">Có file ${label}</span>`;
+      }).join('');
+    }
+
+    function renderRecordFiles(item) {
+      const preview = document.getElementById('recordFilesPreview');
+      if (preview) preview.innerHTML = renderFileBadges(item);
     }
 
     async function processImageFiles(fileList) {
@@ -1614,11 +1687,8 @@
       return { canvas: target, detected: bounds.detected, method: bounds.method };
     }
 
-    function buildPdfFromScans() {
-      const pages = [
-        ...state.documentPages.map(item => item.canvas),
-        ...state.cccdPhotos.map(item => item.canvas)
-      ];
+    function buildPdfFromScans(scans) {
+      const pages = scans.map(item => item.canvas);
 
       if (!pages.length) {
         throw new Error('Bạn chưa chụp tài liệu hoặc CCCD nào.');
@@ -1675,7 +1745,7 @@
       }
 
       try {
-        setStatus('Đang tạo PDF...', 'normal');
+        setStatus('Đang tạo PDF GCN và CCCD...', 'normal');
 
         const payload = {
           tenHuyen: document.getElementById('tenHuyen').value.trim(),
@@ -1698,19 +1768,23 @@
           pageCount: state.documentPages.length + state.cccdPhotos.length,
           createdAt: new Date().toISOString(),
           fileName: buildPdfFileName(),
-          pdfBase64: buildPdfFromScans()
+          pdfGCNBase64: state.documentPages.length ? buildPdfFromScans(state.documentPages) : '',
+          pdfCCCDBase64: state.cccdPhotos.length ? buildPdfFromScans(state.cccdPhotos) : ''
         };
 
         const result = await apiRequest('SAVE_SCAN', payload);
 
-        if (result.fileId) {
-          alert(`${result.message || 'Lưu thành công.'}\nFile PDF đã lưu vào Drive.\nFile ID: ${result.fileId}`);
+        if (result.fileGCN || result.fileCCCD || result.fileId) {
+          if (result.fileGCN) document.getElementById('fileGCN').value = result.fileGCN;
+          if (result.fileCCCD) document.getElementById('fileCCCD').value = result.fileCCCD;
+          renderRecordFiles({ fileGCN: result.fileGCN, fileCCCD: result.fileCCCD, fileUrl: result.fileUrl });
+          alert(`${result.message || 'Lưu thành công.'}\nPDF GCN và CCCD (nếu có) đã lưu riêng trên cùng hồ sơ.`);
         } else {
           alert(result.message || 'Lưu thông tin lên Google Sheet thành công.');
         }
 
         state.selectedRowIndex = null;
-        document.getElementById('btnSaveRecord').textContent = 'Lưu PDF vào Drive + Sheet';
+        document.getElementById('btnSaveRecord').textContent = 'Lưu PDF GCN + CCCD';
         setStatus(result.updated ? 'Đã cập nhật hồ sơ' : 'Đã tạo hồ sơ mới', 'success');
       } catch (error) {
         alert('Lỗi khi lưu PDF: ' + error.message);
@@ -1726,11 +1800,12 @@
       state.cccdPhotos = [];
       state.selectedRowIndex = null;
       state.pendingRetakeId = null;
-      document.getElementById('btnSaveRecord').textContent = 'Lưu PDF vào Drive + Sheet';
+      document.getElementById('btnSaveRecord').textContent = 'Lưu PDF GCN + CCCD';
       document.getElementById('docPageCount').textContent = '0';
       document.getElementById('cccdPageCount').textContent = '0';
       document.getElementById('thumbList').innerHTML = '';
       document.getElementById('searchResults').style.display = 'none';
+      renderRecordFiles({});
 
       setStatus('Đã xóa form', 'normal');
     }
