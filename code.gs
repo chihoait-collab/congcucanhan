@@ -23,7 +23,8 @@ const HEADER_ROW = [
   'fileUrl',
   'pageCount',
   'createdAt',
-  'source'
+  'source',
+  'Ghi chú'
 ];
 
 function doGet() {
@@ -49,6 +50,8 @@ function doPost(e) {
         return jsonResponse(searchRecords(payload));
       case 'SAVE_SCAN':
         return jsonResponse(saveScanRecord(payload));
+      case 'UPDATE_NOTES':
+        return jsonResponse(updateRecordNotes(payload));
       case 'LIST':
         return jsonResponse(listRecords(payload));
       default:
@@ -130,7 +133,9 @@ function rowToObject(row, rowIndex) {
     fileUrl: row[18] || '',
     pageCount: row[19] || 0,
     createdAt: row[20] || '',
-    source: row[21] || ''
+    source: row[21] || '',
+    'Ghi chú': row[22] || '',
+    ocrText: row[22] || ''
   };
 }
 
@@ -169,7 +174,8 @@ function searchRecords(payload) {
       row['File GCN'],
       row['File CCCD'],
       row['Loại mục đích sử dụng'],
-      row['Diện tích']
+      row['Diện tích'],
+      row['Ghi chú']
     ].join(' '));
 
     return (!query || haystack.indexOf(query) >= 0) &&
@@ -183,6 +189,23 @@ function searchRecords(payload) {
 
 function listRecords(payload) {
   return searchRecords({ query: '', limit: payload && payload.limit ? payload.limit : 20 });
+}
+
+function updateRecordNotes(payload) {
+  const sheet = ensureSheet();
+  const rowIndex = Number(payload && payload.rowIndex ? payload.rowIndex : 0);
+  if (rowIndex < 2 || rowIndex > sheet.getLastRow()) {
+    throw new Error('Vui lòng chọn hồ sơ cần cập nhật ghi chú trước.');
+  }
+
+  const notes = normalizeValue(payload && payload.ocrText);
+  sheet.getRange(rowIndex, HEADER_ROW.length, 1, 1).setValue(notes);
+  return {
+    success: true,
+    message: 'Đã lưu ghi chú; các thông tin và tệp khác không thay đổi.',
+    rowIndex: rowIndex,
+    ocrText: notes
+  };
 }
 
 function saveScanRecord(payload) {
@@ -275,7 +298,8 @@ function saveScanRecord(payload) {
     record.fileUrl,
     String(record.pageCount),
     record.createdAt,
-    record.source
+    record.source,
+    normalizeValue(payload && payload.ocrText) || (isUpdate ? normalizeValue(existingRow[22]) : '')
   ];
 
   if (isUpdate) {

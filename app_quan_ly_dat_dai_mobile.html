@@ -509,6 +509,7 @@
           <div class="field">
             <label>Ghi chú / OCR</label>
             <textarea id="ocrText" placeholder="Nội dung OCR, ghi chú hoặc thông tin bổ sung..."></textarea>
+            <button class="secondary" type="button" onclick="saveNoteOnly()">Chỉ lưu ghi chú</button>
           </div>
         </div>
 
@@ -1745,8 +1746,7 @@
 
     async function saveCurrentRecord() {
       if (!state.documentPages.length && !state.cccdPhotos.length) {
-        alert('Bạn cần chụp ít nhất 1 trang tài liệu hoặc CCCD trước khi lưu.');
-        return;
+        return saveNoteOnly();
       }
 
       try {
@@ -1796,6 +1796,25 @@
       } catch (error) {
         alert('Lỗi khi lưu PDF: ' + error.message);
         setStatus('Lưu lỗi', 'error');
+      }
+    }
+
+    async function saveNoteOnly() {
+      if (!state.selectedRowIndex) {
+        alert('Hãy chọn hồ sơ cần cập nhật ghi chú trong kết quả tìm kiếm trước.');
+        return;
+      }
+
+      try {
+        setStatus('Đang lưu riêng ghi chú...', 'normal');
+        const result = await apiRequest('UPDATE_NOTES', {
+          rowIndex: state.selectedRowIndex,
+          ocrText: document.getElementById('ocrText').value.trim()
+        });
+        setStatus(result.message || 'Đã lưu ghi chú', 'success');
+      } catch (error) {
+        alert('Không lưu được ghi chú: ' + error.message);
+        setStatus('Lưu ghi chú lỗi', 'error');
       }
     }
 
