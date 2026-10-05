@@ -24,7 +24,8 @@ const HEADER_ROW = [
   'pageCount',
   'createdAt',
   'source',
-  'Ghi chú'
+  'Ghi chú',
+  'Tình trạng xử lý'
 ];
 
 function doGet() {
@@ -54,6 +55,10 @@ function doPost(e) {
         return jsonResponse(updateRecordNotes(payload));
       case 'LIST':
         return jsonResponse(listRecords(payload));
+      case 'REPORT':
+        return jsonResponse(reportRecords(payload));
+      case 'UPDATE_PROCESSING_STATUS':
+        return jsonResponse(updateProcessingStatus(payload));
       default:
         return jsonResponse({ success: false, error: 'Action không hợp lệ: ' + action });
     }
@@ -135,7 +140,8 @@ function rowToObject(row, rowIndex) {
     createdAt: row[20] || '',
     source: row[21] || '',
     'Ghi chú': row[22] || '',
-    ocrText: row[22] || ''
+    ocrText: row[22] || '',
+    'Tình trạng xử lý': row[23] || 'Chưa xử lý'
   };
 }
 
@@ -191,6 +197,59 @@ function listRecords(payload) {
   return searchRecords({ query: '', limit: payload && payload.limit ? payload.limit : 20 });
 }
 
+function reportRecords(payload) {
+  const sheet = ensureSheet();
+  const lastRow = sheet.getLastRow();
+  const total = Math.max(0, lastRow - 1);
+  const requestedOffset = Number(payload && payload.offset ? payload.offset : 0);
+  const requestedLimit = Number(payload && payload.limit ? payload.limit : 500);
+  const offset = Math.max(0, Math.min(total, isFinite(requestedOffset) ? Math.floor(requestedOffset) : 0));
+  const limit = Math.max(1, Math.min(500, isFinite(requestedLimit) ? Math.floor(requestedLimit) : 500));
+  const count = Math.min(limit, total - offset);
+
+  if (!count) {
+    return { success: true, total: total, offset: offset, data: [] };
+  }
+
+  const values = sheet.getRange(offset + 2, 1, count, HEADER_ROW.length).getValues();
+  const data = values.map((row, index) => {
+    const record = rowToObject(row, offset + index + 2);
+    return {
+      rowIndex: record.rowIndex,
+      STT: record.STT,
+      'Tên huyện': record['Tên huyện'],
+      'Tên xã mới': record['Tên xã mới'] || record['Tên xã cũ'],
+      'Họ Tên CSD': record['Họ Tên CSD'],
+      'Số hiệu tờ bản đồ mới': record['Số hiệu tờ bản đồ mới'],
+      'Số thứ tự thửa mới': record['Số thứ tự thửa mới'],
+      'Diện tích': record['Diện tích'],
+      'File GCN': record['File GCN'],
+      fileUrl: record.fileUrl,
+      createdAt: record.createdAt,
+      'Tình trạng xử lý': record['Tình trạng xử lý']
+    };
+  });
+
+  return { success: true, total: total, offset: offset, data: data };
+}
+
+function updateProcessingStatus(payload) {
+  const sheet = ensureSheet();
+  const rowIndex = Number(payload && payload.rowIndex ? payload.rowIndex : 0);
+  const status = normalizeValue(payload && payload.status);
+  const statusColumn = HEADER_ROW.indexOf('Tình trạng xử lý') + 1;
+
+  if (!Number.isInteger(rowIndex) || rowIndex < 2 || rowIndex > sheet.getLastRow()) {
+    throw new Error('Vui lòng chọn hồ sơ cần cập nhật tình trạng xử lý.');
+  }
+  if (status !== 'Đã xử lý' && status !== 'Chưa xử lý') {
+    throw new Error('Tình trạng xử lý không hợp lệ.');
+  }
+
+  sheet.getRange(rowIndex, statusColumn).setValue(status);
+  return { success: true, rowIndex: rowIndex, status: status };
+}
+
 function updateRecordNotes(payload) {
   const sheet = ensureSheet();
   const rowIndex = Number(payload && payload.rowIndex ? payload.rowIndex : 0);
@@ -199,7 +258,7 @@ function updateRecordNotes(payload) {
   }
 
   const notes = normalizeValue(payload && payload.ocrText);
-  sheet.getRange(rowIndex, HEADER_ROW.length, 1, 1).setValue(notes);
+  sheet.getRange(rowIndex, HEADER_ROW.indexOf('Ghi chú') + 1, 1, 1).setValue(notes);
   return {
     success: true,
     message: 'Đã lưu ghi chú; các thông tin và tệp khác không thay đổi.',
@@ -247,6 +306,7 @@ function saveScanRecord(payload) {
     'File GCN': normalizeValue(payload && payload.fileGCN) || (isUpdate ? normalizeValue(existingRow[13]) : ''),
     'File CCCD': normalizeValue(payload && payload.fileCCCD) || (isUpdate ? normalizeValue(existingRow[14]) : ''),
     'Số CCCD': normalizeValue(payload && payload.soCCCD) || (isUpdate ? normalizeValue(existingRow[15]) : ''),
+    'Tình trạng xử lý': isUpdate ? normalizeValue(existingRow[23]) || 'Chưa xử lý' : 'Chưa xử lý',
     fileName: isUpdate && pdfOriginalBase64 ? normalizeValue(existingRow[16]) : fileName,
     fileId: isUpdate ? normalizeValue(existingRow[17]) : '',
     fileUrl: isUpdate ? normalizeValue(existingRow[18]) : '',
@@ -319,7 +379,8 @@ function saveScanRecord(payload) {
     String(record.pageCount),
     record.createdAt,
     record.source,
-    normalizeValue(payload && payload.ocrText) || (isUpdate ? normalizeValue(existingRow[22]) : '')
+    normalizeValue(payload && payload.ocrText) || (isUpdate ? normalizeValue(existingRow[22]) : ''),
+    record['Tình trạng xử lý']
   ];
 
   if (isUpdate) {

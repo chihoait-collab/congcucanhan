@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Báo cáo thu giấy chứng nhận</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      color: #172033;
+      background: #f3f6fb;
+      font-synthesis: none;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; }
+    button, input, select { font: inherit; }
+    .page { width: min(1200px, 100%); margin: 0 auto; padding: 28px 20px 48px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 22px; }
+    h1 { margin: 0; font-size: clamp(24px, 4vw, 32px); letter-spacing: -.03em; }
+    .subtitle { margin: 8px 0 0; color: #627087; line-height: 1.5; }
+    .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    button, .button-link { border: 0; border-radius: 10px; padding: 10px 14px; background: #1746a2; color: white; font-weight: 700; text-decoration: none; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+    .button-link { background: #e7edf8; color: #243b67; }
+    .card { background: white; border: 1px solid #e1e7f0; border-radius: 16px; box-shadow: 0 5px 18px #20304a0a; }
+    .settings { margin-bottom: 16px; padding: 14px 18px; }
+    .settings summary { cursor: pointer; font-weight: 700; }
+    .settings p { color: #627087; font-size: 13px; line-height: 1.5; }
+    .settings label, .filters label { display: grid; gap: 6px; font-size: 12px; font-weight: 700; color: #627087; }
+    .settings input, .filters input, .filters select { min-width: 0; border: 1px solid #d8e0eb; border-radius: 9px; padding: 10px 11px; background: white; color: #172033; }
+    .filters { display: grid; grid-template-columns: repeat(3, minmax(130px, 1fr)) auto; align-items: end; gap: 12px; padding: 18px; margin-bottom: 16px; }
+    .filters button { min-height: 40px; }
+    .summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
+    .metric { padding: 17px 19px; }
+    .metric-label { color: #627087; font-size: 13px; }
+    .metric-value { display: block; margin-top: 7px; font-size: 28px; font-weight: 800; letter-spacing: -.03em; }
+    .metric.pending .metric-value { color: #b45309; }
+    .metric.done .metric-value { color: #087443; }
+    .panel { overflow: hidden; margin-bottom: 16px; }
+    .panel-title { padding: 17px 19px; border-bottom: 1px solid #e8edf4; }
+    .panel-title h2 { margin: 0; font-size: 17px; }
+    .panel-title p { margin: 5px 0 0; color: #627087; font-size: 13px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid #edf0f5; vertical-align: top; }
+    th { background: #f8fafd; color: #536178; font-size: 12px; white-space: nowrap; }
+    td { font-size: 13px; line-height: 1.45; }
+    tbody tr:last-child td { border-bottom: 0; }
+    .number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .day-heading td { background: #f0f5ff; color: #183c7b; font-weight: 800; }
+    .muted { color: #718096; }
+    .plot { font-weight: 700; white-space: nowrap; }
+    .person { font-weight: 700; }
+    .file-link { color: #1746a2; font-weight: 700; text-decoration: none; }
+    .file-link:hover { text-decoration: underline; }
+    .check-cell { min-width: 130px; }
+    .status-toggle { display: inline-flex; align-items: center; gap: 8px; color: #9a5707; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .status-toggle:has(input:checked) { color: #087443; }
+    .status-toggle input { width: 17px; height: 17px; margin: 0; accent-color: #0a8754; cursor: pointer; }
+    .empty { padding: 32px 18px; text-align: center; color: #627087; }
+    .message { display: none; margin-bottom: 16px; padding: 13px 15px; border-radius: 10px; font-size: 13px; line-height: 1.5; }
+    .message.error { display: block; color: #9c2525; background: #fff0ef; border: 1px solid #ffd3cf; }
+    .message.info { display: block; color: #215187; background: #eff6ff; border: 1px solid #d1e4ff; }
+    @media (max-width: 700px) {
+      .page { padding: 20px 12px 36px; }
+      .header { flex-direction: column; }
+      .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .filters button { grid-column: 1 / -1; }
+      .summary { gap: 8px; }
+      .metric { padding: 13px; }
+      .metric-label { font-size: 11px; }
+      .metric-value { font-size: 23px; }
+      th, td { padding: 10px; }
+    }
+    @media (max-width: 420px) {
+      .filters { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <div>
+        <h1>Báo cáo thu giấy chứng nhận</h1>
+        <p class="subtitle">Theo dõi số hồ sơ thu theo ngày và tiến độ kiểm tra, số hóa vào phần mềm quản lý đất đai.</p>
+      </div>
+      <div class="header-actions">
+        <a class="button-link" href="app_quan_ly_dat_dai_mobile.html">Ứng dụng thu thập</a>
+        <button id="refreshButton" type="button">Tải báo cáo</button>
+      </div>
+    </header>
+
+    <details class="card settings">
+      <summary>Cấu hình kết nối dữ liệu</summary>
+      <p>Dùng chung Web App URL đã lưu trong ứng dụng thu thập. Trạng thái xử lý được lưu trên Google Sheets để mọi thiết bị cùng nhìn thấy.</p>
+      <label for="apiUrl">Google Apps Script Web App URL
+        <input id="apiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+      </label>
+    </details>
+
+    <div id="message" class="message" role="status" aria-live="polite"></div>
+
+    <section class="card filters" aria-label="Bộ lọc báo cáo">
+      <label for="dateFrom">Từ ngày
+        <input id="dateFrom" type="date">
+      </label>
+      <label for="dateTo">Đến ngày
+        <input id="dateTo" type="date">
+      </label>
+      <label for="statusFilter">Tình trạng
+        <select id="statusFilter">
+          <option value="all">Tất cả</option>
+          <option value="pending">Chưa xử lý</option>
+          <option value="done">Đã xử lý</option>
+        </select>
+      </label>
+      <button id="applyButton" type="button">Lọc báo cáo</button>
+    </section>
+
+    <section class="summary" aria-label="Tổng quan hồ sơ">
+      <article class="card metric">
+        <span class="metric-label">Số GCN đã thu</span>
+        <strong id="totalCount" class="metric-value">—</strong>
+      </article>
+      <article class="card metric pending">
+        <span class="metric-label">Chưa kiểm tra / số hóa</span>
+        <strong id="pendingCount" class="metric-value">—</strong>
+      </article>
+      <article class="card metric done">
+        <span class="metric-label">Đã kiểm tra / số hóa</span>
+        <strong id="doneCount" class="metric-value">—</strong>
+      </article>
+    </section>
+
+    <section class="card panel">
+      <div class="panel-title">
+        <h2>Số lượng thu theo ngày</h2>
+        <p>Mỗi dòng là tổng số giấy chứng nhận đã ghi nhận trong ngày thu.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Ngày thu</th><th class="number">Số GCN</th><th class="number">Chưa xử lý</th><th class="number">Đã xử lý</th></tr></thead>
+          <tbody id="dailyBody"></tbody>
+        </table>
+      </div>
+      <div id="dailyEmpty" class="empty" hidden>Không có hồ sơ thu trong khoảng thời gian đã chọn.</div>
+    </section>
+
+    <section class="card panel">
+      <div class="panel-title">
+        <h2>Danh sách giấy chứng nhận đã thu</h2>
+        <p>Đánh dấu sau khi đã kiểm tra hồ sơ và số hóa vào phần mềm quản lý đất đai.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Thửa / tờ bản đồ</th><th>Chủ sử dụng</th><th>Xã / huyện</th><th>Ngày thu</th><th>Diện tích</th><th>Tệp GCN</th><th>Tình trạng</th></tr></thead>
+          <tbody id="recordsBody"></tbody>
+        </table>
+      </div>
+      <div id="recordsEmpty" class="empty" hidden>Không có hồ sơ phù hợp với bộ lọc.</div>
+    </section>
+  </main>
+
+  <script>
+    const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycby1nGc2_GmnJwmXjDMZUIMK2NQ43mB1xlh3VI06OUorJmOPs5hN-dFTDQZzWZabR4LB/exec';
+    const state = { records: [], loading: false };
+    const apiInput = document.getElementById('apiUrl');
+    const message = document.getElementById('message');
+
+    apiInput.value = localStorage.getItem('landApiUrl') || DEFAULT_API_URL;
+    apiInput.addEventListener('change', () => localStorage.setItem('landApiUrl', apiInput.value.trim()));
+    document.getElementById('refreshButton').addEventListener('click', loadReport);
+    document.getElementById('applyButton').addEventListener('click', renderReport);
+    document.getElementById('statusFilter').addEventListener('change', renderReport);
+    document.getElementById('dateFrom').addEventListener('change', renderReport);
+    document.getElementById('dateTo').addEventListener('change', renderReport);
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[character]);
+    }
+
+    function getApiUrl() {
+      const url = apiInput.value.trim();
+      if (!url) throw new Error('Vui lòng nhập Google Apps Script Web App URL.');
+      localStorage.setItem('landApiUrl', url);
+      return url;
+    }
+
+    async function apiRequest(action, payload) {
+      const response = await fetch(getApiUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        body: JSON.stringify({ action, payload })
+      });
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (error) {
+        throw new Error('API trả về dữ liệu không hợp lệ. Hãy kiểm tra URL và phiên bản triển khai Apps Script.');
+      }
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || `Yêu cầu ${action} thất bại.`);
+      }
+      return data;
+    }
+
+    async function loadReport() {
+      if (state.loading) return;
+      state.loading = true;
+      const button = document.getElementById('refreshButton');
+      button.disabled = true;
+      button.textContent = 'Đang tải…';
+      showMessage('Đang tải danh sách hồ sơ…', 'info');
+      try {
+        const records = [];
+        let offset = 0;
+        let total = null;
+        do {
+          const result = await apiRequest('REPORT', { offset, limit: 500 });
+          if (!Array.isArray(result.data) || !Number.isFinite(Number(result.total))) {
+            throw new Error('Dữ liệu báo cáo không đúng định dạng. Hãy cập nhật và triển khai lại Apps Script.');
+          }
+          total = Number(result.total);
+          records.push(...result.data);
+          if (result.data.length === 0 && offset < total) {
+            throw new Error('API không trả thêm dữ liệu; hãy cập nhật và triển khai lại Apps Script.');
+          }
+          offset += result.data.length;
+        } while (offset < total);
+
+        state.records = records;
+        renderReport();
+        showMessage(records.length ? '' : 'Chưa có hồ sơ thu thập nào.', records.length ? '' : 'info');
+      } catch (error) {
+        showMessage(`Không tải được báo cáo: ${error.message} Nếu API báo action không hợp lệ, hãy cập nhật code.gs và triển khai phiên bản Web App mới.`, 'error');
+      } finally {
+        state.loading = false;
+        button.disabled = false;
+        button.textContent = 'Tải báo cáo';
+      }
+    }
+
+    function showMessage(text, tone) {
+      message.textContent = text;
+      message.className = `message${tone ? ` ${tone}` : ''}`;
+    }
+
+    function dateKey(value) {
+      if (!value) return '';
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return '';
+      const year = parsed.getFullYear();
+      const month = String(parsed.getMonth() + 1).padStart(2, '0');
+      const day = String(parsed.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function formatDate(key) {
+      if (!key) return 'Không rõ ngày';
+      const [year, month, day] = key.split('-');
+      return `${day}/${month}/${year}`;
+    }
+
+    function formatArea(value) {
+      if (value === '' || value == null) return '—';
+      const number = Number(value);
+      return Number.isFinite(number) ? `${new Intl.NumberFormat('vi-VN').format(number)} m²` : escapeHtml(value);
+    }
+
+    function visibleRecords() {
+      const from = document.getElementById('dateFrom').value;
+      const to = document.getElementById('dateTo').value;
+      const status = document.getElementById('statusFilter').value;
+      return state.records.filter(record => {
+        const day = dateKey(record.createdAt);
+        const processed = record['Tình trạng xử lý'] === 'Đã xử lý';
+        return (!from || (day && day >= from)) &&
+          (!to || (day && day <= to)) &&
+          (status === 'all' || (status === 'done' ? processed : !processed));
+      }).sort((a, b) => dateKey(b.createdAt).localeCompare(dateKey(a.createdAt)) || Number(b.rowIndex) - Number(a.rowIndex));
+    }
+
+    function renderReport() {
+      const records = visibleRecords();
+      const doneCount = records.filter(record => record['Tình trạng xử lý'] === 'Đã xử lý').length;
+      document.getElementById('totalCount').textContent = records.length;
+      document.getElementById('doneCount').textContent = doneCount;
+      document.getElementById('pendingCount').textContent = records.length - doneCount;
+
+      const days = new Map();
+      records.forEach(record => {
+        const key = dateKey(record.createdAt) || 'unknown';
+        const day = days.get(key) || { total: 0, done: 0 };
+        day.total += 1;
+        if (record['Tình trạng xử lý'] === 'Đã xử lý') day.done += 1;
+        days.set(key, day);
+      });
+      const dailyBody = document.getElementById('dailyBody');
+      dailyBody.innerHTML = [...days.entries()].map(([key, day]) =>
+        `<tr><td>${escapeHtml(key === 'unknown' ? 'Không rõ ngày' : formatDate(key))}</td><td class="number">${day.total}</td><td class="number">${day.total - day.done}</td><td class="number">${day.done}</td></tr>`
+      ).join('');
+      document.getElementById('dailyEmpty').hidden = days.size > 0;
+
+      const groups = new Map();
+      records.forEach(record => {
+        const key = dateKey(record.createdAt) || 'unknown';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(record);
+      });
+      const recordsBody = document.getElementById('recordsBody');
+      recordsBody.innerHTML = [...groups.entries()].map(([key, items]) => {
+        const title = key === 'unknown' ? 'Không rõ ngày' : formatDate(key);
+        const rows = items.map(record => {
+          const processed = record['Tình trạng xử lý'] === 'Đã xử lý';
+          const mapSheet = record['Số hiệu tờ bản đồ mới'] || '—';
+          const place = [record['Tên xã mới'], record['Tên huyện']].filter(Boolean).join(', ') || '—';
+          const file = record['File GCN'] || record.fileUrl;
+          const fileLink = file && /^https?:\/\//i.test(String(file))
+            ? `<a class="file-link" href="${escapeHtml(file)}" target="_blank" rel="noopener noreferrer">Mở GCN</a>`
+            : escapeHtml(file || '—');
+          return `<tr>
+            <td><span class="plot">Thửa ${escapeHtml(record['Số thứ tự thửa mới'] || '—')}</span><br><span class="muted">Tờ ${escapeHtml(mapSheet)}</span></td>
+            <td><span class="person">${escapeHtml(record['Họ Tên CSD'] || '—')}</span></td>
+            <td>${escapeHtml(place)}</td>
+            <td>${escapeHtml(title)}</td>
+            <td>${formatArea(record['Diện tích'])}</td>
+            <td>${fileLink}</td>
+            <td class="check-cell"><label class="status-toggle"><input type="checkbox" data-row-index="${Number(record.rowIndex)}" ${processed ? 'checked' : ''}><span>${processed ? 'Đã xử lý' : 'Chưa xử lý'}</span></label></td>
+          </tr>`;
+        }).join('');
+        return `<tr class="day-heading"><td colspan="7">${escapeHtml(title)} · ${items.length} GCN</td></tr>${rows}`;
+      }).join('');
+      document.getElementById('recordsEmpty').hidden = records.length > 0;
+      recordsBody.querySelectorAll('input[data-row-index]').forEach(input => input.addEventListener('change', updateStatus));
+    }
+
+    async function updateStatus(event) {
+      const checkbox = event.currentTarget;
+      const rowIndex = Number(checkbox.dataset.rowIndex);
+      const record = state.records.find(item => Number(item.rowIndex) === rowIndex);
+      if (!record) return;
+      const previousStatus = record['Tình trạng xử lý'] === 'Đã xử lý' ? 'Đã xử lý' : 'Chưa xử lý';
+      const status = checkbox.checked ? 'Đã xử lý' : 'Chưa xử lý';
+      checkbox.disabled = true;
+      try {
+        const result = await apiRequest('UPDATE_PROCESSING_STATUS', { rowIndex, status });
+        if (result.status !== status) throw new Error('API chưa xác nhận tình trạng mới.');
+        record['Tình trạng xử lý'] = status;
+        renderReport();
+        showMessage(`Đã cập nhật thửa ${record['Số thứ tự thửa mới'] || '—'}: ${status}.`, 'info');
+      } catch (error) {
+        checkbox.checked = previousStatus === 'Đã xử lý';
+        checkbox.disabled = false;
+        showMessage(`Không lưu được tình trạng xử lý: ${error.message} Hãy cập nhật và triển khai lại Apps Script nếu API chưa hỗ trợ chức năng này.`, 'error');
+      }
+    }
+
+    loadReport();
+  </script>
+</body>
+</html>
