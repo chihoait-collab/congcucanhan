@@ -55,9 +55,9 @@
     .file-link { color: #1746a2; font-weight: 700; text-decoration: none; }
     .file-link:hover { text-decoration: underline; }
     .check-cell { min-width: 130px; }
-    .status-toggle { display: inline-flex; align-items: center; gap: 8px; color: #9a5707; font-weight: 700; cursor: pointer; white-space: nowrap; }
-    .status-toggle:has(input:checked) { color: #087443; }
-    .status-toggle input { width: 17px; height: 17px; margin: 0; accent-color: #0a8754; cursor: pointer; }
+    .status-select { min-width: 138px; border: 1px solid #f4d393; border-radius: 8px; padding: 8px 9px; color: #9a5707; background: #fff8e8; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .status-select[data-status="Đã xử lý"] { border-color: #9bd8b7; color: #087443; background: #edfbf3; }
+    .status-select:disabled { opacity: .65; cursor: wait; }
     .empty { padding: 32px 18px; text-align: center; color: #627087; }
     .message { display: none; margin-bottom: 16px; padding: 13px 15px; border-radius: 10px; font-size: 13px; line-height: 1.5; }
     .message.error { display: block; color: #9c2525; background: #fff0ef; border: 1px solid #ffd3cf; }
@@ -201,7 +201,9 @@
       try {
         data = JSON.parse(text);
       } catch (error) {
-        throw new Error('API trả về dữ liệu không hợp lệ. Hãy kiểm tra URL và phiên bản triển khai Apps Script.');
+        const contentType = response.headers.get('content-type') || 'không có Content-Type';
+        const redirectNote = response.redirected ? ' Phản hồi đã bị chuyển hướng.' : '';
+        throw new Error(`Web App trả HTML hoặc dữ liệu không phải JSON (HTTP ${response.status}, ${contentType}).${redirectNote} Kiểm tra URL trong “Cấu hình kết nối dữ liệu”; cần dùng URL Web App kết thúc bằng /exec và cho phép truy cập phù hợp.`);
       }
       if (!response.ok || data.success === false) {
         throw new Error(data.error || `Yêu cầu ${action} thất bại.`);
@@ -330,32 +332,41 @@
             <td>${escapeHtml(title)}</td>
             <td>${formatArea(record['Diện tích'])}</td>
             <td>${fileLink}</td>
-            <td class="check-cell"><label class="status-toggle"><input type="checkbox" data-row-index="${Number(record.rowIndex)}" ${processed ? 'checked' : ''}><span>${processed ? 'Đã xử lý' : 'Chưa xử lý'}</span></label></td>
+            <td class="check-cell"><select class="status-select" data-row-index="${Number(record.rowIndex)}" data-status="${processed ? 'Đã xử lý' : 'Chưa xử lý'}" aria-label="Tình trạng xử lý thửa ${escapeHtml(record['Số thứ tự thửa mới'] || 'chưa rõ')}">
+              <option value="Chưa xử lý" ${processed ? '' : 'selected'}>Chưa xử lý</option>
+              <option value="Đã xử lý" ${processed ? 'selected' : ''}>Đã xử lý</option>
+            </select></td>
           </tr>`;
         }).join('');
         return `<tr class="day-heading"><td colspan="7">${escapeHtml(title)} · ${items.length} GCN</td></tr>${rows}`;
       }).join('');
       document.getElementById('recordsEmpty').hidden = records.length > 0;
-      recordsBody.querySelectorAll('input[data-row-index]').forEach(input => input.addEventListener('change', updateStatus));
+      recordsBody.querySelectorAll('select[data-row-index]').forEach(select => select.addEventListener('change', updateStatus));
     }
 
     async function updateStatus(event) {
-      const checkbox = event.currentTarget;
-      const rowIndex = Number(checkbox.dataset.rowIndex);
+      const selector = event.currentTarget;
+      const rowIndex = Number(selector.dataset.rowIndex);
       const record = state.records.find(item => Number(item.rowIndex) === rowIndex);
       if (!record) return;
       const previousStatus = record['Tình trạng xử lý'] === 'Đã xử lý' ? 'Đã xử lý' : 'Chưa xử lý';
-      const status = checkbox.checked ? 'Đã xử lý' : 'Chưa xử lý';
-      checkbox.disabled = true;
+      const status = selector.value;
+      if (status === 'Đã xử lý' && !window.confirm('Chỉ xác nhận “Đã xử lý” sau khi đã kiểm tra đầy đủ hồ sơ và số hóa vào phần mềm quản lý đất đai. Bạn đã hoàn tất các bước này chưa?')) {
+        selector.value = previousStatus;
+        return;
+      }
+      selector.disabled = true;
       try {
         const result = await apiRequest('UPDATE_PROCESSING_STATUS', { rowIndex, status });
         if (result.status !== status) throw new Error('API chưa xác nhận tình trạng mới.');
         record['Tình trạng xử lý'] = status;
+        selector.dataset.status = status;
         renderReport();
         showMessage(`Đã cập nhật thửa ${record['Số thứ tự thửa mới'] || '—'}: ${status}.`, 'info');
       } catch (error) {
-        checkbox.checked = previousStatus === 'Đã xử lý';
-        checkbox.disabled = false;
+        selector.value = previousStatus;
+        selector.dataset.status = previousStatus;
+        selector.disabled = false;
         showMessage(`Không lưu được tình trạng xử lý: ${error.message} Hãy cập nhật và triển khai lại Apps Script nếu API chưa hỗ trợ chức năng này.`, 'error');
       }
     }

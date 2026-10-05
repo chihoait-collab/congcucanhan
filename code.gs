@@ -104,6 +104,10 @@ function normalizeValue(value) {
   return value === undefined || value === null ? '' : String(value).trim();
 }
 
+function normalizeProcessingStatus(value) {
+  return normalizeValue(value) === 'Đã xử lý' ? 'Đã xử lý' : 'Chưa xử lý';
+}
+
 function normalizeSearchText(value) {
   return normalizeValue(value)
     .toLowerCase()
@@ -141,7 +145,7 @@ function rowToObject(row, rowIndex) {
     source: row[21] || '',
     'Ghi chú': row[22] || '',
     ocrText: row[22] || '',
-    'Tình trạng xử lý': row[23] || 'Chưa xử lý'
+    'Tình trạng xử lý': normalizeProcessingStatus(row[23])
   };
 }
 
@@ -306,7 +310,7 @@ function saveScanRecord(payload) {
     'File GCN': normalizeValue(payload && payload.fileGCN) || (isUpdate ? normalizeValue(existingRow[13]) : ''),
     'File CCCD': normalizeValue(payload && payload.fileCCCD) || (isUpdate ? normalizeValue(existingRow[14]) : ''),
     'Số CCCD': normalizeValue(payload && payload.soCCCD) || (isUpdate ? normalizeValue(existingRow[15]) : ''),
-    'Tình trạng xử lý': isUpdate ? normalizeValue(existingRow[23]) || 'Chưa xử lý' : 'Chưa xử lý',
+    'Tình trạng xử lý': isUpdate ? normalizeProcessingStatus(existingRow[23]) : 'Chưa xử lý',
     fileName: isUpdate && pdfOriginalBase64 ? normalizeValue(existingRow[16]) : fileName,
     fileId: isUpdate ? normalizeValue(existingRow[17]) : '',
     fileUrl: isUpdate ? normalizeValue(existingRow[18]) : '',
