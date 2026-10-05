@@ -376,6 +376,7 @@
           <button class="secondary" type="button" onclick="refreshCameras()" title="Tải lại danh sách camera">Làm mới</button>
         </div>
         <div id="cameraColorHint" class="helper mt-8">Nếu hình vẫn trắng đen, chọn camera khác trong danh sách.</div>
+        <div class="helper mt-8">Với GCN A3 ép nhựa: tránh flash, giữ máy gần song song mặt giấy và chiếu sáng tán xạ từ hai bên. Bản scan tự cân bằng bóng/nếp gấp và lóa nhẹ; vùng cháy trắng không thể khôi phục chữ đã mất. Ảnh gốc vẫn được giữ để đối chiếu.</div>
 
         <div class="field mt-8">
           <label for="scanMode">Phương pháp căn chỉnh</label>
@@ -1072,7 +1073,7 @@
         <div class="thumb-name">${escapeHtml(fileName)} · ${scan.detected ? 'Đã nhận diện' : 'Chưa nhận diện được mép'}</div>
         <div class="comparison-images">
           <figure><img src="${originalUrl}" alt="Ảnh gốc: ${escapeHtml(fileName)}" /><figcaption>Ảnh gốc</figcaption></figure>
-          <figure><img src="${processedUrl}" alt="Ảnh đã căn chỉnh: ${escapeHtml(fileName)}" /><figcaption>Kết quả cắt và căn chỉnh (${escapeHtml(scan.method || 'fallback')})</figcaption></figure>
+          <figure><img src="${processedUrl}" alt="Ảnh đã căn chỉnh: ${escapeHtml(fileName)}" /><figcaption>Kết quả căn chỉnh và cân sáng (${escapeHtml(scan.method || 'fallback')})</figcaption></figure>
         </div>
       `;
       document.getElementById('thumbList').prepend(holder);
@@ -1205,7 +1206,7 @@
         <div class="thumb-name">${escapeHtml(label)} · ${item.detected ? 'Đã nhận diện' : 'Chưa nhận diện được mép'}</div>
         <div class="comparison-images">
           <figure><img src="${originalUrl}" alt="Ảnh gốc: ${escapeHtml(item.fileName)}" /><figcaption>Ảnh gốc</figcaption></figure>
-          <figure><img src="${processedUrl}" alt="Ảnh đã căn chỉnh: ${escapeHtml(item.fileName)}" /><figcaption>Kết quả căn chỉnh (${escapeHtml(item.method || 'fallback')})</figcaption></figure>
+          <figure><img src="${processedUrl}" alt="Ảnh đã căn chỉnh: ${escapeHtml(item.fileName)}" /><figcaption>Kết quả căn chỉnh và cân sáng (${escapeHtml(item.method || 'fallback')})</figcaption></figure>
         </div>
         <div class="thumb-tools">
           <button type="button" class="secondary" onclick="retakeScan('${item.id}')">Chụp lại</button>
@@ -1717,11 +1718,70 @@
       target.width = ratio >= 1 ? targetLongEdge : Math.max(1, Math.round(targetLongEdge * ratio));
       target.height = ratio >= 1 ? Math.max(1, Math.round(targetLongEdge / ratio)) : targetLongEdge;
       const targetCtx = target.getContext('2d');
-      targetCtx.filter = 'brightness(1.04) contrast(1.04) saturate(1.08)';
       targetCtx.drawImage(cropCanvas, 0, 0, target.width, target.height);
-      targetCtx.filter = 'none';
+      correctDocumentLighting(target);
 
       return { canvas: target, detected: bounds.detected, method: bounds.method };
+    }
+
+    function correctDocumentLighting(canvas) {
+      const cv = window.cv;
+      const maxAnalysisEdge = 600;
+      const scale = Math.min(1, maxAnalysisEdge / Math.max(canvas.width, canvas.height));
+      const analysis = document.createElement('canvas');
+      analysis.width = Math.max(1, Math.round(canvas.width * scale));
+      analysis.height = Math.max(1, Math.round(canvas.height * scale));
+      analysis.getContext('2d', { willReadFrequently: true }).drawImage(canvas, 0, 0, analysis.width, analysis.height);
+
+      let source;
+      let gray;
+      let illumination;
+      let fullIllumination;
+      try {
+        source = cv.matFromImageData(analysis.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, analysis.width, analysis.height));
+        gray = new cv.Mat();
+        illumination = new cv.Mat();
+        fullIllumination = new cv.Mat();
+        cv.cvtColor(source, gray, cv.COLOR_RGBA2GRAY);
+        const sigma = Math.max(4, Math.min(14, Math.min(analysis.width, analysis.height) * 0.025));
+        cv.GaussianBlur(gray, illumination, new cv.Size(0, 0), sigma, sigma, cv.BORDER_REPLICATE);
+
+        const histogram = new Uint32Array(256);
+        for (let index = 0; index < illumination.data.length; index++) histogram[illumination.data[index]]++;
+        const percentileIndex = Math.floor(illumination.data.length * 0.7);
+        let accumulated = 0;
+        let reference = 200;
+        for (let value = 0; value < histogram.length; value++) {
+          accumulated += histogram[value];
+          if (accumulated > percentileIndex) {
+            reference = Math.max(150, Math.min(235, value));
+            break;
+          }
+        }
+
+        cv.resize(illumination, fullIllumination, new cv.Size(canvas.width, canvas.height), 0, 0, cv.INTER_LINEAR);
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        const image = context.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = image.data;
+        const lightMap = fullIllumination.data;
+        for (let pixel = 0, index = 0; pixel < lightMap.length; pixel++, index += 4) {
+          const localLight = Math.max(32, lightMap[pixel]);
+          const gain = Math.max(0.78, Math.min(1.28, Math.pow(reference / localLight, 0.65)));
+          const maximumChannel = Math.max(pixels[index], pixels[index + 1], pixels[index + 2]);
+          const minimumChannel = Math.min(pixels[index], pixels[index + 1], pixels[index + 2]);
+          const saturation = maximumChannel ? (maximumChannel - minimumChannel) / maximumChannel : 0;
+          const colorProtection = Math.max(0, 1 - saturation / 0.25);
+          const safeGain = 1 + (gain - 1) * colorProtection;
+          pixels[index] = Math.min(255, pixels[index] * safeGain);
+          pixels[index + 1] = Math.min(255, pixels[index + 1] * safeGain);
+          pixels[index + 2] = Math.min(255, pixels[index + 2] * safeGain);
+        }
+        context.putImageData(image, 0, 0);
+      } finally {
+        [source, gray, illumination, fullIllumination].forEach(mat => {
+          if (mat && mat.delete) mat.delete();
+        });
+      }
     }
 
     function buildPdfFromScans(scans) {
