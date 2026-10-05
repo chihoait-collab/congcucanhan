@@ -211,14 +211,18 @@ function updateRecordNotes(payload) {
 function saveScanRecord(payload) {
   const sheet = ensureSheet();
   const fileName = normalizeValue(payload && payload.fileName ? payload.fileName : `Ho_So_Dat_Dai_${Date.now()}.pdf`);
+  const originalFileName = normalizeValue(payload && payload.fileNameOriginal) || fileName;
   const rowIndex = Number(payload && payload.rowIndex ? payload.rowIndex : 0);
   const isUpdate = rowIndex >= 2 && rowIndex <= sheet.getLastRow();
   const existingRow = isUpdate ? sheet.getRange(rowIndex, 1, 1, HEADER_ROW.length).getValues()[0] : [];
   const pdfGCNBase64 = normalizeValue(payload && (payload.pdfGCNBase64 || payload.pdfBase64));
   const pdfCCCDBase64 = normalizeValue(payload && payload.pdfCCCDBase64);
+  const pdfOriginalBase64 = normalizeValue(payload && payload.pdfOriginalBase64);
+  const requestedPageCount = Number(payload && payload.pageCount ? payload.pageCount : 0);
+  const requestedCreatedAt = normalizeValue(payload && payload.createdAt ? new Date(payload.createdAt).toISOString() : new Date().toISOString());
   const driveWarnings = [];
   let folder = null;
-  if (pdfGCNBase64 || pdfCCCDBase64) {
+  if (pdfGCNBase64 || pdfCCCDBase64 || pdfOriginalBase64) {
     try {
       folder = ensureFolder();
     } catch (error) {
@@ -243,23 +247,39 @@ function saveScanRecord(payload) {
     'File GCN': normalizeValue(payload && payload.fileGCN) || (isUpdate ? normalizeValue(existingRow[13]) : ''),
     'File CCCD': normalizeValue(payload && payload.fileCCCD) || (isUpdate ? normalizeValue(existingRow[14]) : ''),
     'Số CCCD': normalizeValue(payload && payload.soCCCD) || (isUpdate ? normalizeValue(existingRow[15]) : ''),
-    fileName,
+    fileName: isUpdate && pdfOriginalBase64 ? normalizeValue(existingRow[16]) : fileName,
     fileId: isUpdate ? normalizeValue(existingRow[17]) : '',
     fileUrl: isUpdate ? normalizeValue(existingRow[18]) : '',
-    pageCount: Number(payload && payload.pageCount ? payload.pageCount : 0),
-    createdAt: normalizeValue(payload && payload.createdAt ? new Date(payload.createdAt).toISOString() : new Date().toISOString()),
-    source: 'mobile-app'
+    pageCount: isUpdate && pdfOriginalBase64 ? Number(existingRow[19] || 0) : requestedPageCount,
+    createdAt: isUpdate && pdfOriginalBase64 ? normalizeValue(existingRow[20]) : requestedCreatedAt,
+    source: isUpdate && pdfOriginalBase64 ? normalizeValue(existingRow[21]) : 'mobile-app'
   };
 
   const baseName = fileName.replace(/\.pdf$/i, '');
   const cccdFileName = normalizeValue(payload && payload.fileNameCCCD) || `${baseName.replace(/_GCN_\d+$/i, '')}_CCCD_${Date.now()}.pdf`;
+  let originalBackupSaved = false;
+  if (pdfOriginalBase64 && folder) {
+    try {
+      const saved = savePdfToDrive(folder, pdfOriginalBase64, originalFileName, 3 * 1000 * 1000);
+      if (saved.sharingWarning) driveWarnings.push(saved.sharingWarning);
+      record.fileName = originalFileName;
+      record.fileId = saved.fileId;
+      record.fileUrl = saved.fileUrl;
+      record.pageCount = requestedPageCount;
+      record.createdAt = requestedCreatedAt;
+      record.source = 'mobile-app';
+      originalBackupSaved = true;
+    } catch (error) {
+      driveWarnings.push('Không lưu được PDF bản gốc lên Drive: ' + error.toString());
+    }
+  }
   if (pdfGCNBase64 && folder) {
     try {
       const saved = savePdfToDrive(folder, pdfGCNBase64, fileName);
       if (saved.sharingWarning) driveWarnings.push(saved.sharingWarning);
       record['File GCN'] = saved.fileUrl;
-      if (!record.fileUrl) record.fileUrl = saved.fileUrl || '';
-      if (!record.fileId) record.fileId = saved.fileId || '';
+      if (!pdfOriginalBase64 && !record.fileUrl) record.fileUrl = saved.fileUrl || '';
+      if (!pdfOriginalBase64 && !record.fileId) record.fileId = saved.fileId || '';
     } catch (error) {
       driveWarnings.push('Không lưu được PDF GCN lên Drive: ' + error.toString());
     }
@@ -269,8 +289,8 @@ function saveScanRecord(payload) {
       const saved = savePdfToDrive(folder, pdfCCCDBase64, cccdFileName);
       if (saved.sharingWarning) driveWarnings.push(saved.sharingWarning);
       record['File CCCD'] = saved.fileUrl;
-      if (!record.fileUrl) record.fileUrl = saved.fileUrl || '';
-      if (!record.fileId) record.fileId = saved.fileId || '';
+      if (!pdfOriginalBase64 && !record.fileUrl) record.fileUrl = saved.fileUrl || '';
+      if (!pdfOriginalBase64 && !record.fileId) record.fileId = saved.fileId || '';
     } catch (error) {
       driveWarnings.push('Không lưu được PDF CCCD lên Drive: ' + error.toString());
     }
@@ -319,6 +339,7 @@ function saveScanRecord(payload) {
     warning: driveWarnings.join('\n'),
     fileId: record.fileId,
     fileUrl: record.fileUrl,
+    originalBackupSaved: originalBackupSaved,
     fileGCN: record['File GCN'],
     fileCCCD: record['File CCCD'],
     soCCCD: record['Số CCCD'],
@@ -329,7 +350,7 @@ function saveScanRecord(payload) {
   };
 }
 
-function savePdfToDrive(folder, pdfBase64, fileName) {
+function savePdfToDrive(folder, pdfBase64, fileName, maxBytes) {
   try {
     const raw = String(pdfBase64 || '');
     const clean = raw.replace(/^data:.*;base64,/, '').trim();
@@ -339,6 +360,9 @@ function savePdfToDrive(folder, pdfBase64, fileName) {
     }
 
     const blob = Utilities.newBlob(Utilities.base64Decode(clean), 'application/pdf', fileName);
+    if (maxBytes && blob.getBytes().length >= maxBytes) {
+      throw new Error(maxBytes === 3 * 1000 * 1000 ? 'Tệp bản gốc phải nhỏ hơn 3 MB.' : `Tệp vượt quá giới hạn ${maxBytes} byte.`);
+    }
     const file = folder.createFile(blob);
     let sharingWarning = '';
     try {

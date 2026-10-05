@@ -1873,12 +1873,83 @@
       return pdf.output('datauristring');
     }
 
+    function buildOriginalBackupPdf(scans, maxBytes = 3 * 1000 * 1000) {
+      if (!scans.length) throw new Error('Không có ảnh gốc để tạo bản sao dự phòng.');
+      if (scans.some(item => !item.originalCanvas)) {
+        throw new Error('Thiếu ảnh gốc của một trang; không thể tạo bản sao dự phòng đầy đủ.');
+      }
+
+      const attempts = [
+        { maxEdge: 1800, quality: 0.76 },
+        { maxEdge: 1500, quality: 0.68 },
+        { maxEdge: 1250, quality: 0.6 },
+        { maxEdge: 1000, quality: 0.53 },
+        { maxEdge: 800, quality: 0.46 },
+        { maxEdge: 640, quality: 0.4 },
+        { maxEdge: 480, quality: 0.34 }
+      ];
+      const { jsPDF } = window.jspdf;
+
+      for (const attempt of attempts) {
+        let pdf = null;
+        scans.forEach((item, index) => {
+          const original = item.originalCanvas;
+          const scale = Math.min(1, attempt.maxEdge / Math.max(original.width, original.height));
+          const imageCanvas = document.createElement('canvas');
+          imageCanvas.width = Math.max(1, Math.round(original.width * scale));
+          imageCanvas.height = Math.max(1, Math.round(original.height * scale));
+          imageCanvas.getContext('2d').drawImage(original, 0, 0, imageCanvas.width, imageCanvas.height);
+
+          const isDocument = item.type === 'document';
+          const format = isDocument ? 'a3' : 'a4';
+          const orientation = imageCanvas.width >= imageCanvas.height * 1.08 ? 'landscape' : 'portrait';
+          if (!pdf) {
+            pdf = new jsPDF({ orientation, unit: 'mm', format, compress: true });
+          } else {
+            pdf.addPage(format, orientation);
+          }
+
+          const pageWidth = pdf.internal.pageSize.getWidth();
+          const pageHeight = pdf.internal.pageSize.getHeight();
+          const ratio = Math.min(pageWidth / imageCanvas.width, pageHeight / imageCanvas.height);
+          const width = imageCanvas.width * ratio;
+          const height = imageCanvas.height * ratio;
+          const imageData = imageCanvas.toDataURL('image/jpeg', attempt.quality);
+          pdf.addImage(
+            imageData,
+            'JPEG',
+            (pageWidth - width) / 2,
+            (pageHeight - height) / 2,
+            width,
+            height,
+            undefined,
+            'FAST'
+          );
+        });
+
+        const dataUri = pdf.output('datauristring');
+        if (estimateDataUriBytes(dataUri) < maxBytes) return dataUri;
+      }
+
+      throw new Error('Không thể nén bản sao dự phòng xuống dưới 3 MB. Hãy giảm số trang hoặc chọn ảnh gốc có độ phân giải thấp hơn.');
+    }
+
+    function estimateDataUriBytes(dataUri) {
+      const base64 = dataUri.slice(dataUri.indexOf(',') + 1);
+      const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+      return Math.floor(base64.length * 3 / 4) - padding;
+    }
+
     function buildPdfFileName() {
       return `${buildRecordFileNameParts().join('_')}_GCN_${Date.now()}.pdf`;
     }
 
     function buildCccdPdfFileName() {
       return `${buildRecordFileNameParts().join('_')}_CCCD_${Date.now()}.pdf`;
+    }
+
+    function buildOriginalBackupFileName() {
+      return `${buildRecordFileNameParts().join('_')}_BAN_GOC_${Date.now()}.pdf`;
     }
 
     function buildRecordFileNameParts() {
@@ -1907,7 +1978,10 @@
       }
 
       try {
-        setStatus('Đang tạo PDF GCN và CCCD...', 'normal');
+        setStatus('Đang tạo PDF và nén bản sao gốc...', 'normal');
+        const allScans = [...state.documentPages, ...state.cccdPhotos];
+        const originalBackupFileName = buildOriginalBackupFileName();
+        const pdfOriginalBase64 = buildOriginalBackupPdf(allScans);
 
         const payload = {
           tenHuyen: document.getElementById('tenHuyen').value.trim(),
@@ -1931,6 +2005,8 @@
           createdAt: new Date().toISOString(),
           fileName: buildPdfFileName(),
           fileNameCCCD: buildCccdPdfFileName(),
+          fileNameOriginal: originalBackupFileName,
+          pdfOriginalBase64,
           pdfGCNBase64: state.documentPages.length
             ? buildPdfFromScans(state.documentPages, { orientation: 'landscape', format: 'a3' })
             : '',
@@ -1944,7 +2020,7 @@
           if (result.fileGCN) document.getElementById('fileGCN').value = result.fileGCN;
           if (result.fileCCCD) document.getElementById('fileCCCD').value = result.fileCCCD;
           renderRecordFiles({ fileGCN: result.fileGCN, fileCCCD: result.fileCCCD, fileUrl: result.fileUrl });
-          alert(`${result.message || 'Lưu thành công.'}\nPDF GCN và CCCD (nếu có) đã lưu riêng trên cùng hồ sơ.${result.warning ? `\n${result.warning}` : ''}`);
+          alert(`${result.message || 'Lưu thành công.'}\nPDF GCN và CCCD (nếu có) đã lưu riêng trên cùng hồ sơ.${result.originalBackupSaved ? '\nĐã lưu bản sao PDF gốc (chưa chỉnh sửa), ghép tất cả ảnh và dưới 3 MB.' : ''}${result.warning ? `\n${result.warning}` : ''}`);
         } else {
           alert(result.message || 'Lưu thông tin lên Google Sheet thành công.');
         }
