@@ -919,7 +919,7 @@
       originalCanvas.width = canvas.width;
       originalCanvas.height = canvas.height;
       originalCanvas.getContext('2d').drawImage(canvas, 0, 0);
-      const scan = prepareScan(canvas, { targetLongEdge: 3000 });
+      const scan = prepareScan(canvas, { targetLongEdge: 3000, preferSpread: captureType === 'document' });
       const item = {
         id: state.pendingRetakeId || createScanId(),
         type: captureType,
@@ -1005,11 +1005,11 @@
             sourceCanvas.height = sourceBitmap.height;
             sourceCanvas.getContext('2d').drawImage(sourceBitmap, 0, 0);
 
-            const scan = prepareScan(sourceCanvas, { targetLongEdge: 3000 });
             const pendingItem = state.pendingRetakeId
               ? [...state.documentPages, ...state.cccdPhotos].find(existing => existing.id === state.pendingRetakeId)
               : null;
             const itemType = pendingItem ? pendingItem.type : document.getElementById('imageUploadType').value;
+            const scan = prepareScan(sourceCanvas, { targetLongEdge: 3000, preferSpread: itemType === 'document' });
             const item = {
               id: state.pendingRetakeId || createScanId(),
               type: itemType,
@@ -1256,35 +1256,41 @@
       document.getElementById('imageFiles').click();
     }
 
-    function detectDocumentBounds(sourceCanvas, mode = state.scanMode) {
-      if (mode === 'opencv') {
-        return detectDocumentWithOpenCv(sourceCanvas, false) || detectDocumentWithJscanify(sourceCanvas) || detectDocumentByColorFallback(sourceCanvas);
+    function detectDocumentBounds(sourceCanvas, mode = state.scanMode, options = {}) {
+      const candidates = [];
+      if (mode !== 'fallback') {
+        const openCvBounds = detectDocumentWithOpenCv(sourceCanvas, false, options);
+        if (openCvBounds) candidates.push(openCvBounds);
       }
+      const jscanifyBounds = detectDocumentWithJscanify(sourceCanvas);
+      if (jscanifyBounds) candidates.push(jscanifyBounds);
+      const colorBounds = detectDocumentByColorFallback(sourceCanvas);
+      if (colorBounds) candidates.push(colorBounds);
 
-      if (mode === 'fallback') {
-        return detectDocumentWithJscanify(sourceCanvas) || detectDocumentByColorFallback(sourceCanvas);
-      }
-
-      const candidates = [
-        detectDocumentWithOpenCv(sourceCanvas, false),
-        detectDocumentWithJscanify(sourceCanvas),
-        detectDocumentByColorFallback(sourceCanvas)
-      ].filter(Boolean);
-      if (!candidates.length) return detectDocumentByColorFallback(sourceCanvas);
-      return candidates.reduce((best, candidate) => scoreDocumentBounds(candidate, sourceCanvas) > scoreDocumentBounds(best, sourceCanvas) ? candidate : best);
+      const detectedCandidates = candidates.filter(candidate => candidate.detected);
+      if (!detectedCandidates.length) return colorBounds || candidates[0];
+      return detectedCandidates.reduce((best, candidate) =>
+        scoreDocumentBounds(candidate, sourceCanvas, options) > scoreDocumentBounds(best, sourceCanvas, options)
+          ? candidate
+          : best
+      );
     }
 
-    function scoreDocumentBounds(bounds, sourceCanvas) {
+    function scoreDocumentBounds(bounds, sourceCanvas, options = {}) {
       const boxArea = bounds.width * bounds.height;
       const frameArea = sourceCanvas.width * sourceCanvas.height;
       const areaRatio = boxArea / frameArea;
-      let score = bounds.detected ? 30 : 0;
-      score += bounds.corners ? 30 : 0;
-      score += bounds.method === 'opencv' ? 20 : bounds.method === 'jscanify' ? 12 : 0;
-      score -= areaRatio > 0.92 ? 100 : areaRatio < 0.08 ? 35 : 0;
+      const aspect = Math.max(bounds.width, bounds.height) / Math.max(1, Math.min(bounds.width, bounds.height));
+      const aspectFit = Math.exp(-Math.abs(Math.log(aspect / Math.SQRT2)));
+      let score = areaRatio * (0.7 + 0.3 * aspectFit);
+      score += bounds.corners ? 0.025 : 0;
+      score += bounds.method === 'opencv' ? 0.015 : bounds.method === 'jscanify' ? 0.01 : 0;
+      if (areaRatio > 0.82) score -= 0.3;
+      if (areaRatio < 0.06) score -= 0.2;
+      if (options.preferSpread && areaRatio > 0.2 && aspect < 2.2) score += 0.08;
       if (bounds.corners) {
         const margin = Math.min(...bounds.corners.map(point => Math.min(point.x, point.y, sourceCanvas.width - point.x, sourceCanvas.height - point.y)));
-        if (margin > Math.min(sourceCanvas.width, sourceCanvas.height) * 0.01) score += 10;
+        if (margin > Math.min(sourceCanvas.width, sourceCanvas.height) * 0.01) score += 0.01;
       }
       return score;
     }
@@ -1452,11 +1458,10 @@
     }
 
     function findOpenCvDocumentContour(cv, blurred, width, height, sourceCanvas, scale, kernel, options = {}) {
-      let best = null;
-      let bestScore = -Infinity;
+      const candidates = [];
       const edgeThresholds = options.fast
         ? [[50, 150]]
-        : [[35, 105], [50, 150], [70, 210]];
+        : [[15, 45], [35, 105], [50, 150], [70, 210]];
 
       for (const [lowThreshold, highThreshold] of edgeThresholds) {
         const edges = new cv.Mat();
@@ -1489,10 +1494,6 @@
               const rightHeight = Math.hypot(corners[2].x - corners[1].x, corners[2].y - corners[1].y);
               const ratio = Math.max(topWidth, bottomWidth) / Math.max(1, Math.max(leftHeight, rightHeight));
               if (ratio < 0.22 || ratio > 4.5) continue;
-              const aspect = Math.max(ratio, 1 / ratio);
-              const aspectFit = Math.exp(-Math.abs(Math.log(aspect / Math.SQRT2)));
-              const candidateScore = area * (0.8 + 0.2 * aspectFit);
-              if (candidateScore <= bestScore) continue;
 
               const xs = corners.map(point => point.x);
               const ys = corners.map(point => point.y);
@@ -1511,8 +1512,7 @@
                 method: 'opencv'
               };
 
-              bestScore = candidateScore;
-              best = { ...candidate, area };
+              candidates.push(candidate);
             } finally {
               contour.delete();
               polygon.delete();
@@ -1526,9 +1526,66 @@
         }
       }
 
-      if (!best) return null;
-      delete best.area;
-      return best;
+      if (!candidates.length) return null;
+      if (options.preferSpread) candidates.push(...mergeAdjacentDocumentPages(candidates, sourceCanvas));
+      candidates.sort((a, b) =>
+        scoreDocumentBounds(b, sourceCanvas, options) - scoreDocumentBounds(a, sourceCanvas, options)
+      );
+      return candidates[0];
+    }
+
+    function mergeAdjacentDocumentPages(candidates, sourceCanvas) {
+      const merged = [];
+      for (let firstIndex = 0; firstIndex < candidates.length; firstIndex++) {
+        for (let secondIndex = firstIndex + 1; secondIndex < candidates.length; secondIndex++) {
+          const first = candidates[firstIndex];
+          const second = candidates[secondIndex];
+          const firstCenterX = first.corners.reduce((sum, point) => sum + point.x, 0) / 4;
+          const secondCenterX = second.corners.reduce((sum, point) => sum + point.x, 0) / 4;
+          const left = firstCenterX <= secondCenterX ? first : second;
+          const right = left === first ? second : first;
+          const [leftTop, leftInnerTop, leftInnerBottom, leftBottom] = left.corners;
+          const [rightInnerTop, rightTop, rightBottom, rightInnerBottom] = right.corners;
+          const leftHeight = (Math.hypot(leftBottom.x - leftTop.x, leftBottom.y - leftTop.y) +
+            Math.hypot(leftInnerBottom.x - leftInnerTop.x, leftInnerBottom.y - leftInnerTop.y)) / 2;
+          const rightHeight = (Math.hypot(rightBottom.x - rightTop.x, rightBottom.y - rightTop.y) +
+            Math.hypot(rightInnerBottom.x - rightInnerTop.x, rightInnerBottom.y - rightInnerTop.y)) / 2;
+          const heightRatio = Math.max(leftHeight, rightHeight) / Math.max(1, Math.min(leftHeight, rightHeight));
+          if (heightRatio > 1.65) continue;
+
+          const seamDistance = (
+            Math.hypot(leftInnerTop.x - rightInnerTop.x, leftInnerTop.y - rightInnerTop.y) +
+            Math.hypot(leftInnerBottom.x - rightInnerBottom.x, leftInnerBottom.y - rightInnerBottom.y)
+          ) / 2;
+          if (seamDistance > Math.max(18, Math.min(leftHeight, rightHeight) * 0.16)) continue;
+
+          const corners = [leftTop, rightTop, rightBottom, leftBottom];
+          const topWidth = Math.hypot(rightTop.x - leftTop.x, rightTop.y - leftTop.y);
+          const bottomWidth = Math.hypot(rightBottom.x - leftBottom.x, rightBottom.y - leftBottom.y);
+          const height = (leftHeight + rightHeight) / 2;
+          const aspect = Math.max(topWidth, bottomWidth) / Math.max(1, height);
+          if (aspect < 1.05 || aspect > 2.5) continue;
+
+          const xs = corners.map(point => point.x);
+          const ys = corners.map(point => point.y);
+          const x = Math.max(0, Math.floor(Math.min(...xs)));
+          const y = Math.max(0, Math.floor(Math.min(...ys)));
+          const rightEdge = Math.min(sourceCanvas.width, Math.ceil(Math.max(...xs)));
+          const bottomEdge = Math.min(sourceCanvas.height, Math.ceil(Math.max(...ys)));
+          if ((rightEdge - x) * (bottomEdge - y) <= Math.max(left.width * left.height, right.width * right.height) * 1.2) continue;
+
+          merged.push({
+            x,
+            y,
+            width: rightEdge - x,
+            height: bottomEdge - y,
+            corners,
+            detected: true,
+            method: 'opencv'
+          });
+        }
+      }
+      return merged;
     }
 
     function detectDocumentWithJscanify(sourceCanvas) {
@@ -1694,7 +1751,7 @@
     }
 
     function prepareScan(sourceCanvas, opts) {
-      const bounds = detectDocumentBounds(sourceCanvas);
+      const bounds = detectDocumentBounds(sourceCanvas, state.scanMode, opts);
       const cropCanvas = document.createElement('canvas');
       let cropCtx;
       if (bounds.corners && (bounds.method === 'jscanify' || bounds.method === 'opencv')) {
@@ -1784,7 +1841,7 @@
       }
     }
 
-    function buildPdfFromScans(scans) {
+    function buildPdfFromScans(scans, options = {}) {
       const pages = scans.map(item => item.canvas);
 
       if (!pages.length) {
@@ -1792,7 +1849,11 @@
       }
 
       const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pdf = new jsPDF({
+        orientation: options.orientation || 'portrait',
+        unit: 'mm',
+        format: options.format || 'a4'
+      });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
 
@@ -1870,7 +1931,9 @@
           createdAt: new Date().toISOString(),
           fileName: buildPdfFileName(),
           fileNameCCCD: buildCccdPdfFileName(),
-          pdfGCNBase64: state.documentPages.length ? buildPdfFromScans(state.documentPages) : '',
+          pdfGCNBase64: state.documentPages.length
+            ? buildPdfFromScans(state.documentPages, { orientation: 'landscape', format: 'a3' })
+            : '',
           pdfCCCDBase64: state.cccdPhotos.length ? buildPdfFromScans(state.cccdPhotos) : ''
         };
 
